@@ -1,0 +1,16 @@
+
+name: gitops-translator
+
+services:
+  translator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gitops-translator-app
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      - PORT=8081
+      - DEFAULT_CLUSTER=on-premise
+      - JAVA_TOOL_OPTIONS=-Xms256m -Xmx768m -XX:+UseG1GC

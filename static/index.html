@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔮 Go GitOps Values Translator</title>
+    <!-- Modern Premium Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <!-- PrismJS Dark Theme for syntax highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <style>
+        :root {
+            --bg-gradient: radial-gradient(circle at 10% 20%, rgb(18, 18, 25) 0%, rgb(10, 10, 15) 90%);
+            --primary: #00f2fe;
+            --secondary: #4facfe;
+            --accent: #ff007f;
+            --text: #e0e0ea;
+            --text-muted: #8fa0c0;
+            --card-bg: rgba(25, 25, 35, 0.6);
+            --border: rgba(0, 242, 254, 0.15);
+            --border-hover: rgba(0, 242, 254, 0.4);
+            --card-glow: rgba(0, 242, 254, 0.08);
+            --card-glow-hover: rgba(0, 242, 254, 0.15);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: var(--bg-gradient);
+            color: var(--text);
+            font-family: 'Outfit', sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            max-width: 1400px;
+            width: 100%;
+            margin: 2rem auto 1rem auto;
+            padding: 0 2rem;
+        }
+
+        .glowing-title {
+            font-size: 2.8rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(79, 172, 254, 0.3);
+            margin-bottom: 0.2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .glowing-subtitle {
+            font-size: 1.1rem;
+            color: var(--text-muted);
+            margin-bottom: 1.5rem;
+        }
+
+        /* Main Workspace Grid */
+        .workspace {
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto 3rem auto;
+            padding: 0 2rem;
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 2rem;
+            flex-grow: 1;
+        }
+
+        /* Sidebar Settings panel */
+        aside {
+            background: rgba(18, 18, 28, 0.95);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            height: fit-content;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .sidebar-section h3 {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--primary);
+            margin-bottom: 1rem;
+            font-weight: 700;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 0.5rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .form-group input, .form-group select {
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            padding: 0.6rem 0.8rem;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 8px rgba(0, 242, 254, 0.2);
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            cursor: pointer;
+        }
+
+        .checkbox-group input {
+            cursor: pointer;
+            width: 1.1rem;
+            height: 1.1rem;
+            accent-color: var(--primary);
+        }
+
+        .checkbox-group label {
+            font-size: 0.9rem;
+            color: var(--text);
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        /* Main Workspace Panels */
+        main {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* Horizontal templates selector card */
+        .templates-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.25rem;
+            box-shadow: 0 8px 32px 0 var(--card-glow);
+        }
+
+        .templates-card h3 {
+            font-size: 1rem;
+            margin-bottom: 0.8rem;
+            color: var(--text);
+            font-weight: 600;
+        }
+
+        .templates-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+        }
+
+        .template-btn {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+            color: var(--text);
+            font-family: inherit;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .template-btn:hover {
+            background: rgba(0, 242, 254, 0.06);
+            border-color: var(--primary);
+            transform: translateY(-1px);
+        }
+
+        .template-btn .title {
+            font-size: 0.95rem;
+            color: #ffffff;
+            font-weight: 700;
+        }
+
+        .template-btn .desc {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        /* 2-Column workspace setup */
+        .panels-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1.5rem;
+        }
+
+        .panel {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            min-width: 0;
+        }
+
+        .panel-header {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        textarea {
+            width: 100%;
+            height: 800px;
+            background: rgba(10, 10, 15, 0.8);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem;
+            color: #ffffff;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85rem;
+            resize: none;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            line-height: 1.4;
+            overflow-wrap: break-word;
+            word-break: break-word;
+            min-width: 0;
+        }
+
+        textarea:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 15px rgba(0, 242, 254, 0.15);
+        }
+
+        /* Result Panel components */
+        .result-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            height: 800px;
+            min-width: 0;
+            width: 100%;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            height: 100%;
+            background: rgba(10, 10, 15, 0.5);
+            border: 1px dashed var(--border);
+            border-radius: 12px;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .empty-state .icon {
+            font-size: 3rem;
+            animation: float 4s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+
+        .error-alert {
+            background: rgba(255, 0, 127, 0.1);
+            border: 1px solid var(--accent);
+            border-radius: 12px;
+            padding: 1rem;
+            color: #ff80b3;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85rem;
+            white-space: pre-wrap;
+            overflow-y: auto;
+            overflow-x: auto;
+            word-break: break-all;
+            overflow-wrap: break-word;
+            max-height: 100%;
+            min-width: 0;
+        }
+
+        /* Target File Path Card */
+        .path-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: 0 8px 32px 0 var(--card-glow);
+            transition: all 0.2s ease;
+        }
+
+        .path-card:hover {
+            box-shadow: 0 12px 40px 0 var(--card-glow-hover);
+            border-color: var(--border-hover);
+        }
+
+        .path-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--primary);
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .path-box {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(0, 0, 0, 0.25);
+            padding: 0.6rem 0.8rem;
+            border-radius: 8px;
+            border: 1px solid rgba(0, 242, 254, 0.2);
+        }
+
+        .path-box code {
+            color: var(--primary);
+            font-family: 'Fira Code', monospace;
+            font-size: 0.9rem;
+            word-break: break-all;
+            margin-right: 1rem;
+        }
+
+        .copy-btn {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            border: none;
+            color: #0a0a0f;
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-family: inherit;
+            min-width: 65px;
+            transition: transform 0.1s, filter 0.2s;
+        }
+
+        .copy-btn:hover {
+            filter: brightness(1.1);
+        }
+
+        .copy-btn:active {
+            transform: scale(0.96);
+        }
+
+        /* Outputs and code viewers */
+        .code-viewer-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            flex-grow: 1;
+            min-height: 0;
+        }
+
+        .code-pre-wrapper {
+            position: relative;
+            flex-grow: 1;
+            min-height: 0;
+            min-width: 0;
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .code-pre-wrapper pre {
+            margin: 0 !important;
+            height: 100% !important;
+            max-width: 100%;
+            background: rgba(10, 10, 15, 0.85) !important;
+            overflow: auto !important;
+            border-radius: 12px;
+            padding: 1rem !important;
+        }
+
+        .code-pre-wrapper code {
+            font-size: 0.8rem !important;
+            line-height: 1.5 !important;
+        }
+
+        .floating-action-bar {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+        }
+
+        .action-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: #ffffff;
+            padding: 0.6rem 1.2rem;
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+        }
+
+        .action-btn:hover {
+            background: rgba(0, 242, 254, 0.1);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .action-btn.download-btn {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            border: none;
+            color: #0a0a0f;
+        }
+
+        .action-btn.download-btn:hover {
+            filter: brightness(1.1);
+            color: #0a0a0f;
+        }
+
+        /* Tooltip style */
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="glowing-title">🔮 Go GitOps Values Translator</div>
+        <div class="glowing-subtitle">Hyper-performance Go application to instantly migrate legacy stand-alone values configs to unified webapp Helm charts.</div>
+    </header>
+
+    <div class="workspace">
+        <!-- Sidebar Controls -->
+        <aside>
+            <div class="sidebar-section">
+                <h3>⚙️ Environment Settings</h3>
+                <div class="form-group">
+                    <label for="cluster">Default Cluster Destination</label>
+                    <input type="text" id="cluster" value="{{.DefaultCluster}}">
+                </div>
+                <div class="form-group">
+                    <label for="envOverride">Force Environment Override</label>
+                    <select id="envOverride">
+                        <option value="">Detect Automatically</option>
+                        <option value="develop">develop</option>
+                        <option value="staging">staging</option>
+                        <option value="release">release</option>
+                        <option value="production">production</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="teamOverride">Force Team / Project</label>
+                    <input type="text" id="teamOverride" placeholder="e.g. middleware, integration">
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="useCommonConfigmap" checked>
+                    <label for="useCommonConfigmap">Use Common Configmap (commun)</label>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>🚀 JVM & Resource Options</h3>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="isJavaApp" checked>
+                    <label for="isJavaApp">Is Java / JVM Application</label>
+                </div>
+                <div id="jvmGroup" class="form-group">
+                    <label for="javaOpts">JAVA_TOOL_OPTIONS</label>
+                    <input type="text" id="javaOpts" value="{{.JavaToolOptions}}">
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main workspace area -->
+        <main>
+            <!-- Horizontally ordered example templates selection -->
+            <div class="templates-card">
+                <h3>📋 Quick-Load Legacy Templates</h3>
+                <div class="templates-grid">
+                    <button class="template-btn" onclick="loadTemplate('accManager')">
+                        <span class="title">🔮 Account Manager (Dev)</span>
+                        <span class="desc">Develop env config (No secrets)</span>
+                    </button>
+                    <button class="template-btn" onclick="loadTemplate('linkser')">
+                        <span class="title">🔌 Linkser Connector (Dev)</span>
+                        <span class="desc">Linkser env (Ingress enabled)</span>
+                    </button>
+                    <button class="template-btn" onclick="loadTemplate('sealedSecrets')">
+                        <span class="title">🔒 Sealed Secrets (Prod)</span>
+                        <span class="desc">Production config (With Sealed Secrets)</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2-Column work area -->
+            <div class="panels-grid">
+                <!-- Left: Source input -->
+                <div class="panel">
+                    <div class="panel-header">👈 Paste Old GitOps Values YAML</div>
+                    <textarea id="legacyYaml" placeholder="Paste legacy values-*.yaml contents here..."></textarea>
+                </div>
+
+                <!-- Right: Translated output -->
+                <div class="panel">
+                    <div class="panel-header">👉 Translated Webapp Helm Values</div>
+                    <div class="result-container" id="resultContainer">
+                        <!-- Empty State initially -->
+                        <div class="empty-state" id="emptyState">
+                            <div class="icon">🔮</div>
+                            <div>Paste legacy YAML on the left panel or click one of the quick-load templates above to start instant translation.</div>
+                        </div>
+
+                        <!-- Content wrapper (initially hidden) -->
+                        <div class="code-viewer-container" id="contentWrapper" style="display: none;">
+                            <!-- Target Suggested Path -->
+                            <div class="path-card">
+                                <div class="path-label">📍 Target Destination File Path</div>
+                                <div class="path-box">
+                                    <code id="targetPath">charts/webapp/values/on-premise/...</code>
+                                    <button class="copy-btn" id="copyPathBtn" onclick="copyPath()">Copy</button>
+                                </div>
+                            </div>
+
+                            <!-- Code editor/display -->
+                            <div class="code-pre-wrapper">
+                                <pre><code class="language-yaml" id="codeOutput"></code></pre>
+                            </div>
+
+                            <!-- Action Bar -->
+                            <div class="floating-action-bar">
+                                <button class="action-btn" id="copyYamlBtn" onclick="copyYamlContent()">📋 Copy YAML Content</button>
+                                <button class="action-btn download-btn" onclick="downloadYaml()">📥 Download values.yaml</button>
+                            </div>
+                        </div>
+
+                        <!-- Error Alert (initially hidden) -->
+                        <div class="error-alert" id="errorAlert" style="display: none;"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+    <script>
+        const SAMPLE_ACC_MANAGER = `nameOverride: account-manager
+environment: develop
+team: middleware
+replicaCount: 0
+image:
+  pullPolicy: IfNotPresent
+  repository: bancoganadero/account-manager
+  tag: 25080.develop
+imagePullSecrets:
+  - name: dockerhublogin
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+resources:
+  limits:
+    cpu: "256m"
+    memory: "1000Mi"
+  requests:
+    cpu: "128m"
+    memory: "512Mi"
+configmap: 
+  spring.profiles.active: docker
+  java.awt.headless: false
+  ORACLE_MAX_POOL: 2
+  ORACLE_CONNECTION_TIMEOUT: 30000
+  ORACLE_IDLE_TIMEOUT: 180000
+  ORACLE_MINIMUM_IDLE: 2
+  ORACLE_POOL_NAME: HIKARI-POOL
+  PROJECT_SQL_PORT: 3306
+  PROJECT_TIME_ZONE: America/La_Paz
+  REDIS_PORT: 6379
+  PROJECT_CACHE_TYPE: redis
+  CONFIG_DATABASE_ENABLED: false
+  CONFIG_SERVER_ENABLED: true
+  CONFIG_SERVER_ADDR: http://configuration-manager:8080/configuration-manager
+ingress:
+  enabled: false
+  annotations:
+    kubernetes.io/ingress.class: kong
+    konghq.com/strip-path: "true"
+  hosts:
+    - paths:
+        - path: /middleware/account-manager/
+          pathType: Prefix
+`;
+
+        const SAMPLE_LINKSER = `nameOverride: linkser-connector
+environment: develop
+team: middleware
+replicaCount: 1
+image:
+  pullPolicy: IfNotPresent
+  repository: bgdevopsreg.azurecr.io/middleware/linkser-connector
+  tag: 52969.develop
+imagePullSecrets: 
+  - name: azure-container-registry
+configmap:
+  spring.profiles.active: 'docker'
+  java.awt.headless: 'false'
+  MAX_POOL_DB: '2'
+  PROJECT_SQL_PORT: '3306'
+  PROJECT_TIME_ZONE: 'America/La_Paz'
+  REDIS_PORT: '6379'
+  PROJECT_CACHE_TYPE: 'redis'
+  CONFIG_DATABASE_ENABLED: 'false'
+  CONFIG_SERVER_ENABLED: 'true'
+  CONFIG_SERVER_ADDR: 'http://configuration-manager:8080/configuration-manager'
+ingress:
+  enabled: true
+  annotations: 
+    kubernetes.io/ingress.class: kong
+    konghq.com/strip-path: "true"
+  hosts:
+    - paths:
+        - path: /middleware/linkser-connector/
+          pathType: Prefix
+      host: api.dev.bg.com.bo
+`;
+
+        const SAMPLE_RELEASE_SEALED = `nameOverride: account-manager
+environment: release
+team: middleware
+replicaCount: 1
+image:
+  pullPolicy: IfNotPresent
+  repository: bancoganadero/account-manager
+  tag: 24305.release
+imagePullSecrets:
+  - name: dockerhublogin
+configmap:
+  spring.profiles.active: docker
+  java.awt.headless: false
+  ORACLE_MAX_POOL: 2
+  ORACLE_CONNECTION_TIMEOUT: 30000
+  ORACLE_IDLE_TIMEOUT: 180000
+  ORACLE_MINIMUM_IDLE: 2
+  ORACLE_POOL_NAME: HIKARI-POOL
+  PROJECT_SQL_PORT: 3306
+  PROJECT_TIME_ZONE: America/La_Paz
+  REDIS_PORT: 6379
+  PROJECT_CACHE_TYPE: redis
+  CONFIG_DATABASE_ENABLED: false
+  CONFIG_SERVER_ENABLED: true
+  CONFIG_SERVER_ADDR: http://configuration-manager:8080/configuration-manager
+sealed:
+  data: 
+    ORACLE_DATABASE: AgAWyABA/emrNAEoz7WJzO9ExdeJSZs8XM0YYKX3QzspSaawbBmIkv0bR4WTLDuUCKPlBZLGYcjC5rp+5Gy79X5aDq7SofMW1++/4RhFGptkebI+5FIpYGj3wRXYZqHfupxkUeq3FGVeaQIw5ryanAIMtADvk2WPykD2p+HBx08gSdAr8+A5j78KI8tJaT8N7I99+sODIu2bi2m9UJMNCHBCB2ai90uneddkxPDO0tcPYjV0oIrnpaqRk+WHj3vk+u+ieeoujKvEBrCGzkclrsI4Zv6v8NlmAs2MGScM35qesb++dsmTmhThu0EXwjpYGjqxiAebfR7c66c1TP7qgIwdgdv8YufGHmlBY/OMet/F1ebv8EMtwsaiucxPy14rZqj97kLJ67p6vdVM+PLdE8LwtCB0qFSeFjpONCgbwWt4z64C/Jlh9UMw/JMxMI8VKhzOKjIPD2rKmAFtfWu4lg2QrWb28VA3aafFrgj/k7zJ4P+y0LwqIeqayR2B38xbaxBRXbHmAwsq1priuTu31LDCitWYL1jzOTRWXsjWxMBX/abybfwcVM7lcpnXsvMT2zvvmbWIlXi0hEV/52fZo1lkI9U7AHQJ96YRxd1a3lpw+6d+DTPhkfzlXJu2j+Px7Rjk/yft/jipqv/NflxJWQ4JMviE4uyKszM8BlhH7CZRbdww26AMtUSml1reikZ1cq37sjiVI/gxxrZH
+    ORACLE_PASSWORD: AgC1Cqzrh69CSfXSsGsJHUE7VZQwfv5DGv5AFmMZPztvSXtynUD6pooz6fRDVCk5EbrtkawxEHJHOMSpYqa5lwaj6ovvl5oPMznsM7gWcfm/G0Wa25F19Phg2U+U1+kCkECwpyV8eUpZn77O0SMtk5TNO8rmzTTSFe7r6kA7WD07PV/+L7kLFpEfIJ8qehl/qk60eYlzg/hDFh7dk+fmS/j5OXMN/dwAH7Zp7OgdX3c5qdJUk/6STs7wkvqSybVHgnxaxN6AhCYT9morLW29jTbGlQd41mcHT/rEKXM/Ku0HzA+95Lp1mzpB9XeVkbOo11/lGntZRNubjBBFjtq8ThjwQIx1cYMKKheGyKvZf/E9bP8rYENMFybYoEc5lJpe1Md3j440DWHrWJRUjuCBR8qmVwcYRJaED3Q9WdY5TwFfb7kgDrST+ZpVcDv9I2EgUHUXueW2CaGq2UIqNYYfeCnzJp2rk1JVBaD4QCnJDxSlm1+yNwQ1p2wk/izpQSgO2Lyl5APSexcE2KeDcdvDOJweE3WuWAXrQTb5f1buHhXVKHiEnDTnpSb7gFsXBQsh2cdGYSI8B5kza33BtjKtoqCKJBUp4SWYp1tWkMKrCMaq8lmCmOS73T7wuTfgJkR50Kqsy+JbGN+nO9XxlyTADfn1dhLQMILok5pizUyzoid5gSSBCZwlQ+nHMiPSnqRN1nN1VCZv3/g=
+    ORACLE_PORT: AgBLjXJr5T8mariSjDy6wKLDyJIh9we4Jc9Uzenj1rgQNzI6+HZpgi01S0XraAeSlIrJ7lu4iZhGM5eTD3AwrN9byLFp4+oTsBNdvyGXcUwWvgCeJj7Dv82e2Q1RqU36dvBLIQ0AmyUFfw++9LBx6btVZRfRmudV5kLZoxLqT4orAeMjufrHRyfAgPbrQRJsLllAzFi68xX+Lze6qQPsquJ9o/vu8ro3es9vyIkSieX+maVa3pWnT+sF4t+KmqASxTH9gxiO/z950Vq4Y6/irSwyjiIhxrOFEfMaQZVzfdW32uigwA6QhVWFRqFZJ8RIFGhEKpuWwAsH9WA5FrzSZJMmvLYcJuDpf6YVc2evlJQdYNYxcHTofZXH4ZWE+CGJAoH2UhIImDMDwgomV+FUQgBro8/jAYDypZJQVPaj+FOaptYtyV24vn613zbCRDcndrJvco4Dfuhb4kHK++ZHUqhtULbq9qZK2/Ytlvspo3RQKa0gwXNBOYk8vbmeQFm6RysSadTdIrkmYq96/J7mKjFf8599zIbFbdhUXLE0hYg5ynXwI30F2zAhst2Btk2AQsiD25l43k3KuAGtjkouSfth4ojJ6oqRhkupIAj8+4k+hX/e4xVqEi08T/iknQPYFf8iAKZkUC1r9x6/fudk6+0L6rA4eSKFnGUrsaHJieL4KQfje7/BopVAQCDlG1XyPtZj2vyo
+    ORACLE_SERVER: AgCjnhcZksAxSaMUSEVZFtRS7vbGn642ddYsf2EtkifjqWCs6WDS3ELcmhJxRr/Z9ulEJNHAu2LafX26T/e4iLaNid333jleJdPCgD7RuPgtbBCUbbEA5fZDlg+rRmd9cI8R1bTHA9LzNdY2ZmpynAknqYzyxDvLP3g1l53bbTM1DqqOBR0BOcDhMKQbsYWPzA3NzozU8DWbBmNZ6AJh//FhG1vArMkWT7egA75ltyO04YM/OlvaBbjlFe+FhJPIzU6mMmgSbCUIKIjCg5b76v76h0gEUQDnEhG0rq093fG74KkCi+gapKr3E56udzHju5wobrpRxRsJgdquPov7Rcd3pDEZat+v8OuZbLiRsvaSTQGT8ylozIgUcPSBXb1mxc9Fio2RNHBh1xUa9jE06/xETFQKzOB5mbxFWX/eBf0gdWXjksLE1Y2x2eGA4YO+2VQAeToMQsevE16+djEi5I18ucZldqo4jbS1Pn1PyPeVOcxv1fwFky+JwlyK3h4mz1jCDmUgV2wYb1qSARzvBONOt+A97q5Rrt93Xs5oxLkxxEOxf2zHKRzXk/3JHewJElroIJgOUWy8Eosq+o4CrkLho3KNpUbQq26BiptC+q1SDL/p80HWWbAbaPy5dpxK8CcKodnPsDZd8xx4VsVk2GW+RXbrWc8S30AgRZcWOESbmr6OgRpR0W7HQV38x5pmOW1JZ3zr5IKaOfr+5OpY6R66gw==
+    ORACLE_USER: AgArUWICFh4zdbFW5HVyVt2k1WTYFi655hLNCZHVjb1vVMpREoLX14aiNT+TXVM8InhHgigwU4UtwxQHqFQJPjF4PF/9sfxZwov1oF4lxS1IByjr2kSJmNCR4yaKKo01FbZyqPCyMF3I6bWm8+6ZdQmfCb4peujr9OsQNTMsQundsUGx3k6penI0Lu0n1FVPfTdIsamEMqMfAAgVrATRuH3OwKpBvVKdAvvtHu3RoHVE9CD7UbNqFRI4wVdVBFzszbp4y+d7gHCZ35harntHgOO0KUBqF3yd81lJeW0kPHzgt3aJ+KpARm9c+lVECfhnA9jpFw73MhUORdQrVMJCn3O7c1v69vXnpV9TYjCwi4NU66l7oYgkO0y6nqYpu5lIQigcIHKa+MU9Um7UOuYFRNHIx0Sq4UlOyXi+OyoDAcjNIMQQGIE0fqpTErOF59XSLuZdp+mintz+ai4bHD/+ALIW4jQEfFuNqdhKmkO1v+z03dYJrWEQ4IE82QSJt7tJDTX+60jPo8+3lfyuvXRFc81gf7Sv5LgO01kLll1wB+Oc6i4K6d0aNm2C0es7hASnIPhIOUokU7d1Jv3B6sq7OdgcUpS1pjGFA/9tSqaHDnsXA3pzIx9CaXdz4gqA8aCZuhbh2IXL4QjBrryg8iMK2TFsjf604g4/hLoGj3ZqYwNcI4JLlm5inMMSJXCcFERntl6jsq+DMahj9
+    REDIS_SERVER: AgAeIvNtGKXYPc90GtYwLV6MTpHw8zot0XvomOlvr9CgrFNaKgAbqcC2LqstEyDq35qTLpL/UJl2BLYZCgzGny6G6S6H1sD65HyUZiPLldqyFmnCqfDsCONZdkT7L+zleaFonF/4BYB37ueK9GAPVTTXiTia6A9vO0tXFE30jAHcnGvfNhQ61wwkAp1ca8dFpfD/Q9rP5hh0sRnxjAsFQhtVByUJndY8gfjrs6dEf0CopkQ7gxjLxrTv635Nf2VKCsRWpDMtLY5p/Uwg4ftvKiloKh0UbKJIlulBz+aF2G//4YJwuiQDvCLzin29HFsQxnkL5ovtApwbKXjKzDreIEVqW+gkvOfYpVJQdnUSQ9RAxXl0Lgb0oN8kZQj1OWUOIMbMS0rtrZA7B7pJTM01F8fp1LoF3lu5X5UYm6BuvAHknfaDwLEMkx+VxlRr1TXlp96hdDiL0aQc9hcFakPd+KOMJ73BflUm3KHlaRhjo4du/PaZ5KSdD71KOe1XyfEjbyf7g3dNwLu+KnqHXoJ2vR/1yZauzuaw0bUMM7RuW62JmAvCeYB7DVYX3KGHfsZDWF3NRasZL0hoyb8bHcw/KzWz2yQBXKCaiVEUhs1Iki8PBx5EXhYZDulGFwV3SZ/mgjfTf8KXX3+Inkqi+ygzpjBjc9HaYHDHmS14pYl4wRWZUsjplWNmnhSkBNRLdsBlQPLZlwlGpCyl1VCTx5+4L2bTO78E4OWxkMPrNm0EQ9onfSA+elE=
+ingress:
+  enabled: false
+  annotations:
+    kubernetes.io/ingress.class: kong
+    konghq.com/strip-path: "true"
+  hosts:
+    - paths:
+        - path: /middleware/account-manager/
+          pathType: Prefix
+`;
+
+        const inputs = {
+            cluster: document.getElementById('cluster'),
+            envOverride: document.getElementById('envOverride'),
+            teamOverride: document.getElementById('teamOverride'),
+            useCommonConfigmap: document.getElementById('useCommonConfigmap'),
+            isJavaApp: document.getElementById('isJavaApp'),
+            javaOpts: document.getElementById('javaOpts'),
+            legacyYaml: document.getElementById('legacyYaml')
+        };
+
+        const view = {
+            emptyState: document.getElementById('emptyState'),
+            contentWrapper: document.getElementById('contentWrapper'),
+            errorAlert: document.getElementById('errorAlert'),
+            targetPath: document.getElementById('targetPath'),
+            codeOutput: document.getElementById('codeOutput')
+        };
+
+        // Listen for input changes to translate in real-time
+        Object.values(inputs).forEach(input => {
+            input.addEventListener('input', triggerTranslation);
+            input.addEventListener('change', triggerTranslation);
+        });
+
+        // Toggle JVM inputs based on Java app checkbox
+        inputs.isJavaApp.addEventListener('change', () => {
+            const jvmGroup = document.getElementById('jvmGroup');
+            if (inputs.isJavaApp.checked) {
+                jvmGroup.style.display = 'flex';
+            } else {
+                jvmGroup.style.display = 'none';
+            }
+            triggerTranslation();
+        });
+
+        // Fast JS Blur on paste event to prevent layout flashing
+        inputs.legacyYaml.addEventListener('paste', () => {
+            setTimeout(() => {
+                inputs.legacyYaml.blur();
+                inputs.legacyYaml.focus();
+            }, 100);
+        });
+
+        let currentTranslation = '';
+
+        function loadTemplate(type) {
+            if (type === 'accManager') {
+                inputs.legacyYaml.value = SAMPLE_ACC_MANAGER;
+            } else if (type === 'linkser') {
+                inputs.legacyYaml.value = SAMPLE_LINKSER;
+            } else if (type === 'sealedSecrets') {
+                inputs.legacyYaml.value = SAMPLE_RELEASE_SEALED;
+            }
+            triggerTranslation();
+        }
+
+        let debounceTimeout;
+        function triggerTranslation() {
+            clearTimeout(debounceTimeout);
+            debounceTimeout = setTimeout(performTranslation, 50); // 50ms quick debounce
+        }
+
+        async function performTranslation() {
+            const sourceText = inputs.legacyYaml.value.trim();
+            if (!sourceText) {
+                view.emptyState.style.display = 'flex';
+                view.contentWrapper.style.display = 'none';
+                view.errorAlert.style.display = 'none';
+                return;
+            }
+
+            const payload = {
+                yaml: sourceText,
+                cluster: inputs.cluster.value || 'on-premise',
+                envOverride: inputs.envOverride.value || '',
+                teamOverride: inputs.teamOverride.value || '',
+                useCommonConfigmap: inputs.useCommonConfigmap.checked,
+                javaOpts: inputs.isJavaApp.checked ? inputs.javaOpts.value : ''
+            };
+
+            try {
+                const response = await fetch('/api/translate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+
+                if (!response.ok || result.error) {
+                    showError(result.error || 'Server error translating YAML');
+                    return;
+                }
+
+                currentTranslation = result.translated;
+                view.targetPath.innerText = result.targetPath;
+                view.codeOutput.textContent = result.translated;
+
+                // Refresh Prism Syntax Highlighting
+                Prism.highlightElement(view.codeOutput);
+
+                view.emptyState.style.display = 'none';
+                view.errorAlert.style.display = 'none';
+                view.contentWrapper.style.display = 'flex';
+            } catch (err) {
+                showError('Network error connecting to translation backend: ' + err.message);
+            }
+        }
+
+        function showError(msg) {
+            view.errorAlert.innerText = msg;
+            view.emptyState.style.display = 'none';
+            view.contentWrapper.style.display = 'none';
+            view.errorAlert.style.display = 'block';
+        }
+
+        function copyPath() {
+            const pathText = view.targetPath.innerText;
+            navigator.clipboard.writeText(pathText);
+            const btn = document.getElementById('copyPathBtn');
+            btn.innerText = 'Copied!';
+            setTimeout(() => { btn.innerText = 'Copy'; }, 1500);
+        }
+
+        function copyYamlContent() {
+            if (!currentTranslation) return;
+            navigator.clipboard.writeText(currentTranslation);
+            const btn = document.getElementById('copyYamlBtn');
+            const originalText = btn.innerText;
+            btn.innerText = '✅ Copied!';
+            setTimeout(() => { btn.innerText = originalText; }, 1500);
+        }
+
+        function downloadYaml() {
+            if (!currentTranslation) return;
+            const blob = new Blob([currentTranslation], { type: 'text/yaml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'values.yaml';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
