@@ -3,24 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🔮 Go GitOps Values Translator</title>
+    <title>🔮 GitOps Migration Dashboard</title>
     <!-- Modern Premium Font -->
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
     <!-- PrismJS Dark Theme for syntax highlighting -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
     <style>
         :root {
-            --bg-gradient: radial-gradient(circle at 10% 20%, rgb(18, 18, 25) 0%, rgb(10, 10, 15) 90%);
+            --bg-gradient: radial-gradient(circle at 50% 50%, rgb(18, 18, 30) 0%, rgb(8, 8, 12) 100%);
             --primary: #00f2fe;
             --secondary: #4facfe;
             --accent: #ff007f;
-            --text: #e0e0ea;
-            --text-muted: #8fa0c0;
-            --card-bg: rgba(25, 25, 35, 0.6);
+            --accent-glow: rgba(255, 0, 127, 0.25);
+            --primary-glow: rgba(0, 242, 254, 0.2);
+            --text: #e2e8f0;
+            --text-muted: #94a3b8;
+            --card-bg: rgba(20, 20, 30, 0.7);
             --border: rgba(0, 242, 254, 0.15);
-            --border-hover: rgba(0, 242, 254, 0.4);
-            --card-glow: rgba(0, 242, 254, 0.08);
-            --card-glow-hover: rgba(0, 242, 254, 0.15);
+            --border-hover: rgba(0, 242, 254, 0.45);
+            --glow: rgba(0, 242, 254, 0.06);
+            --glow-hover: rgba(0, 242, 254, 0.15);
+            --font-main: 'Outfit', sans-serif;
+            --font-mono: 'Fira Code', monospace;
         }
 
         * {
@@ -32,122 +36,222 @@
         body {
             background: var(--bg-gradient);
             color: var(--text);
-            font-family: 'Outfit', sans-serif;
+            font-family: var(--font-main);
             min-height: 100vh;
             overflow-x: hidden;
             display: flex;
             flex-direction: column;
         }
 
-        header {
-            max-width: 1400px;
-            width: 100%;
-            margin: 2rem auto 1rem auto;
-            padding: 0 2rem;
+        /* Ambient glowing circles */
+        .ambient-glow {
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(0, 242, 254, 0.08) 0%, rgba(79, 172, 254, 0.01) 70%);
+            top: -10%;
+            right: -10%;
+            z-index: -1;
+            pointer-events: none;
+            filter: blur(80px);
+        }
+        .ambient-glow-left {
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255, 0, 127, 0.05) 0%, rgba(255, 0, 127, 0) 70%);
+            bottom: -5%;
+            left: -10%;
+            z-index: -1;
+            pointer-events: none;
+            filter: blur(80px);
         }
 
-        .glowing-title {
-            font-size: 2.8rem;
-            font-weight: 800;
-            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            text-shadow: 0 0 30px rgba(79, 172, 254, 0.3);
-            margin-bottom: 0.2rem;
+        header {
+            max-width: 1600px;
+            width: 100%;
+            margin: 1.5rem auto 1rem auto;
+            padding: 0 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .brand {
             display: flex;
             align-items: center;
             gap: 0.75rem;
         }
 
-        .glowing-subtitle {
-            font-size: 1.1rem;
-            color: var(--text-muted);
-            margin-bottom: 1.5rem;
+        .brand-icon {
+            font-size: 2.2rem;
+            filter: drop-shadow(0 0 15px var(--primary-glow));
+            animation: pulse 3s infinite alternate;
         }
 
-        /* Main Workspace Grid */
+        @keyframes pulse {
+            0% { transform: scale(1); filter: drop-shadow(0 0 5px var(--primary-glow)); }
+            100% { transform: scale(1.05); filter: drop-shadow(0 0 20px var(--primary-glow)); }
+        }
+
+        .glowing-title {
+            font-size: 2.2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(0, 242, 254, 0.2);
+            letter-spacing: -0.5px;
+        }
+
+        .glowing-subtitle {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            font-weight: 400;
+            margin-top: 0.2rem;
+        }
+
+        /* Primary Glassmorphic Tabs Selection */
+        .main-tabs {
+            display: flex;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 0.35rem;
+            gap: 0.25rem;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+
+        .main-tab-btn {
+            background: transparent;
+            border: none;
+            outline: none;
+            padding: 0.6rem 1.4rem;
+            color: var(--text-muted);
+            font-family: inherit;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .main-tab-btn:hover {
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .main-tab-btn.active {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: #08080c;
+            box-shadow: 0 4px 15px rgba(0, 242, 254, 0.3);
+            font-weight: 700;
+        }
+
+        /* Workspace Layout Grid */
         .workspace {
-            max-width: 1400px;
+            max-width: 1600px;
             width: 100%;
             margin: 0 auto 3rem auto;
             padding: 0 2rem;
             display: grid;
-            grid-template-columns: 320px 1fr;
+            grid-template-columns: 340px 1fr;
             gap: 2rem;
             flex-grow: 1;
         }
 
         /* Sidebar Settings panel */
         aside {
-            background: rgba(18, 18, 28, 0.95);
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
             border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 1.5rem;
+            border-radius: 20px;
+            padding: 1.75rem;
             display: flex;
             flex-direction: column;
-            gap: 1.5rem;
+            gap: 1.75rem;
             height: fit-content;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            transition: all 0.3s;
+        }
+
+        aside:hover {
+            border-color: var(--border-hover);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), 0 0 30px var(--glow);
         }
 
         .sidebar-section h3 {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             text-transform: uppercase;
-            letter-spacing: 1.5px;
+            letter-spacing: 1.8px;
             color: var(--primary);
-            margin-bottom: 1rem;
-            font-weight: 700;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            padding-bottom: 0.5rem;
+            margin-bottom: 1.25rem;
+            font-weight: 800;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding-bottom: 0.6rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
         .form-group {
             display: flex;
             flex-direction: column;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
+            gap: 0.45rem;
+            margin-bottom: 1.25rem;
         }
 
         .form-group label {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             color: var(--text-muted);
             font-weight: 600;
+            letter-spacing: 0.3px;
         }
 
         .form-group input, .form-group select {
-            background: rgba(0, 0, 0, 0.25);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             color: #ffffff;
-            padding: 0.6rem 0.8rem;
-            border-radius: 8px;
+            padding: 0.75rem 0.9rem;
+            border-radius: 10px;
             font-family: inherit;
             font-size: 0.9rem;
             outline: none;
-            transition: border-color 0.2s, box-shadow 0.2s;
+            transition: all 0.25s;
         }
 
         .form-group input:focus, .form-group select:focus {
             border-color: var(--primary);
-            box-shadow: 0 0 8px rgba(0, 242, 254, 0.2);
+            box-shadow: 0 0 12px rgba(0, 242, 254, 0.25);
+            background: rgba(0, 0, 0, 0.5);
         }
 
         .checkbox-group {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
-            margin-bottom: 1rem;
+            gap: 0.8rem;
+            margin-bottom: 1.2rem;
             cursor: pointer;
+            user-select: none;
         }
 
         .checkbox-group input {
             cursor: pointer;
-            width: 1.1rem;
-            height: 1.1rem;
+            width: 1.2rem;
+            height: 1.2rem;
             accent-color: var(--primary);
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
         .checkbox-group label {
-            font-size: 0.9rem;
+            font-size: 0.88rem;
             color: var(--text);
             font-weight: 600;
             cursor: pointer;
@@ -158,23 +262,33 @@
             display: flex;
             flex-direction: column;
             gap: 1.5rem;
+            min-width: 0;
         }
 
         /* Horizontal templates selector card */
         .templates-card {
             background: var(--card-bg);
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(20px);
             border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 1.25rem;
-            box-shadow: 0 8px 32px 0 var(--card-glow);
+            border-radius: 20px;
+            padding: 1.5rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+            transition: all 0.3s;
+        }
+
+        .templates-card:hover {
+            border-color: var(--border-hover);
         }
 
         .templates-card h3 {
-            font-size: 1rem;
-            margin-bottom: 0.8rem;
-            color: var(--text);
-            font-weight: 600;
+            font-size: 0.95rem;
+            margin-bottom: 1rem;
+            color: #ffffff;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
         .templates-grid {
@@ -184,56 +298,70 @@
         }
 
         .template-btn {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 10px;
-            padding: 0.75rem 1rem;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 12px;
+            padding: 0.85rem 1.1rem;
             color: var(--text);
             font-family: inherit;
             font-weight: 600;
             cursor: pointer;
             text-align: left;
-            transition: all 0.2s ease;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             display: flex;
             flex-direction: column;
-            gap: 0.25rem;
+            gap: 0.3rem;
         }
 
         .template-btn:hover {
-            background: rgba(0, 242, 254, 0.06);
+            background: rgba(0, 242, 254, 0.05);
             border-color: var(--primary);
-            transform: translateY(-1px);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 242, 254, 0.1);
         }
 
         .template-btn .title {
             font-size: 0.95rem;
             color: #ffffff;
             font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
         }
 
         .template-btn .desc {
-            font-size: 0.75rem;
+            font-size: 0.78rem;
             color: var(--text-muted);
+            font-weight: 400;
         }
 
         /* 2-Column workspace setup */
         .panels-grid {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 1.5rem;
+            gap: 1.75rem;
+            flex-grow: 1;
         }
 
         .panel {
             display: flex;
             flex-direction: column;
-            gap: 0.75rem;
+            gap: 0.85rem;
             min-width: 0;
         }
 
         .panel-header {
-            font-size: 1.1rem;
-            font-weight: 600;
+            font-size: 1.05rem;
+            font-weight: 700;
             color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.2rem 0.5rem;
+            letter-spacing: 0.3px;
+        }
+
+        .panel-header span {
             display: flex;
             align-items: center;
             gap: 0.5rem;
@@ -241,35 +369,36 @@
 
         textarea {
             width: 100%;
-            height: 800px;
-            background: rgba(10, 10, 15, 0.8);
+            height: 750px;
+            background: rgba(8, 8, 14, 0.8);
             border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 1rem;
+            border-radius: 16px;
+            padding: 1.25rem;
             color: #ffffff;
-            font-family: 'Fira Code', monospace;
+            font-family: var(--font-mono);
             font-size: 0.85rem;
             resize: none;
             outline: none;
-            transition: border-color 0.2s, box-shadow 0.2s;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-            line-height: 1.4;
+            transition: all 0.3s;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4), inset 0 2px 5px rgba(0,0,0,0.5);
+            line-height: 1.5;
             overflow-wrap: break-word;
-            word-break: break-word;
+            word-break: break-all;
             min-width: 0;
         }
 
         textarea:focus {
             border-color: var(--primary);
-            box-shadow: 0 0 15px rgba(0, 242, 254, 0.15);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4), 0 0 25px rgba(0, 242, 254, 0.15);
+            background: rgba(4, 4, 8, 0.95);
         }
 
         /* Result Panel components */
         .result-container {
             display: flex;
             flex-direction: column;
-            gap: 1rem;
-            height: 800px;
+            gap: 1.25rem;
+            height: 750px;
             min-width: 0;
             width: 100%;
         }
@@ -279,102 +408,158 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 1rem;
+            gap: 1.25rem;
             height: 100%;
-            background: rgba(10, 10, 15, 0.5);
-            border: 1px dashed var(--border);
-            border-radius: 12px;
+            background: rgba(8, 8, 14, 0.45);
+            border: 2px dashed var(--border);
+            border-radius: 16px;
             color: var(--text-muted);
             text-align: center;
-            padding: 2rem;
+            padding: 3rem;
+            backdrop-filter: blur(5px);
         }
 
         .empty-state .icon {
-            font-size: 3rem;
+            font-size: 4rem;
             animation: float 4s ease-in-out infinite;
+            filter: drop-shadow(0 0 15px var(--primary-glow));
         }
 
         @keyframes float {
-            0% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
-            100% { transform: translateY(0px); }
+            0% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-12px) rotate(3deg); }
+            100% { transform: translateY(0px) rotate(0deg); }
+        }
+
+        .empty-state .title {
+            font-size: 1.2rem;
+            color: #ffffff;
+            font-weight: 700;
+        }
+
+        .empty-state .desc {
+            font-size: 0.9rem;
+            max-width: 320px;
+            line-height: 1.5;
         }
 
         .error-alert {
-            background: rgba(255, 0, 127, 0.1);
+            background: rgba(255, 0, 127, 0.08);
             border: 1px solid var(--accent);
-            border-radius: 12px;
-            padding: 1rem;
+            border-radius: 16px;
+            padding: 1.25rem;
             color: #ff80b3;
-            font-family: 'Fira Code', monospace;
+            font-family: var(--font-mono);
             font-size: 0.85rem;
             white-space: pre-wrap;
             overflow-y: auto;
             overflow-x: auto;
             word-break: break-all;
             overflow-wrap: break-word;
-            max-height: 100%;
-            min-width: 0;
+            height: 100%;
+            box-shadow: 0 10px 30px rgba(255,0,127,0.1);
+        }
+
+        /* Output Sub-Tabs for Dual Output */
+        .output-tabs {
+            display: flex;
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 0.25rem;
+            gap: 0.25rem;
+            width: fit-content;
+        }
+
+        .output-tab-btn {
+            background: transparent;
+            border: none;
+            outline: none;
+            padding: 0.45rem 1.1rem;
+            color: var(--text-muted);
+            font-family: inherit;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.25s;
+        }
+
+        .output-tab-btn:hover {
+            color: #ffffff;
+        }
+
+        .output-tab-btn.active {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--primary);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
         }
 
         /* Target File Path Card */
         .path-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: 12px;
+            background: rgba(15, 15, 25, 0.8);
+            border: 1px solid rgba(0, 242, 254, 0.15);
+            border-radius: 14px;
             padding: 1rem;
-            box-shadow: 0 8px 32px 0 var(--card-glow);
-            transition: all 0.2s ease;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s;
         }
 
         .path-card:hover {
-            box-shadow: 0 12px 40px 0 var(--card-glow-hover);
-            border-color: var(--border-hover);
+            border-color: rgba(0, 242, 254, 0.35);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3), 0 0 15px rgba(0, 242, 254, 0.05);
         }
 
         .path-label {
-            font-size: 0.75rem;
+            font-size: 0.72rem;
             text-transform: uppercase;
-            letter-spacing: 1.5px;
+            letter-spacing: 2px;
             color: var(--primary);
-            font-weight: 700;
+            font-weight: 800;
             margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
         }
 
         .path-box {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            background: rgba(0, 0, 0, 0.25);
-            padding: 0.6rem 0.8rem;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 0.65rem 0.9rem;
             border-radius: 8px;
-            border: 1px solid rgba(0, 242, 254, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         .path-box code {
-            color: var(--primary);
-            font-family: 'Fira Code', monospace;
-            font-size: 0.9rem;
+            color: #ffffff;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
             word-break: break-all;
             margin-right: 1rem;
+            letter-spacing: -0.2px;
         }
 
         .copy-btn {
             background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
             border: none;
-            color: #0a0a0f;
-            padding: 0.4rem 0.8rem;
+            color: #08080c;
+            padding: 0.4rem 0.9rem;
             border-radius: 6px;
             font-weight: 700;
             cursor: pointer;
-            font-size: 0.8rem;
+            font-size: 0.78rem;
             font-family: inherit;
             min-width: 65px;
-            transition: transform 0.1s, filter 0.2s;
+            transition: all 0.2s;
+            box-shadow: 0 4px 10px rgba(0, 242, 254, 0.2);
         }
 
         .copy-btn:hover {
-            filter: brightness(1.1);
+            filter: brightness(1.15);
+            box-shadow: 0 4px 15px rgba(0, 242, 254, 0.4);
+            transform: translateY(-1px);
         }
 
         .copy-btn:active {
@@ -396,195 +581,424 @@
             min-height: 0;
             min-width: 0;
             width: 100%;
-            border-radius: 12px;
+            border-radius: 16px;
             overflow: hidden;
-            border: 1px solid var(--border);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
         }
 
         .code-pre-wrapper pre {
             margin: 0 !important;
             height: 100% !important;
             max-width: 100%;
-            background: rgba(10, 10, 15, 0.85) !important;
+            background: rgba(8, 8, 14, 0.85) !important;
             overflow: auto !important;
-            border-radius: 12px;
-            padding: 1rem !important;
+            border-radius: 16px;
+            padding: 1.25rem !important;
         }
 
         .code-pre-wrapper code {
-            font-size: 0.8rem !important;
-            line-height: 1.5 !important;
+            font-family: var(--font-mono) !important;
+            font-size: 0.82rem !important;
+            line-height: 1.55 !important;
         }
 
         .floating-action-bar {
             display: flex;
-            gap: 1rem;
+            gap: 0.85rem;
             justify-content: flex-end;
         }
 
         .action-btn {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
             color: #ffffff;
-            padding: 0.6rem 1.2rem;
+            padding: 0.7rem 1.2rem;
             font-family: inherit;
-            font-size: 0.9rem;
+            font-size: 0.88rem;
             font-weight: 600;
             cursor: pointer;
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            transition: all 0.2s;
+            transition: all 0.25s;
         }
 
         .action-btn:hover {
-            background: rgba(0, 242, 254, 0.1);
+            background: rgba(0, 242, 254, 0.08);
             border-color: var(--primary);
             color: var(--primary);
+            transform: translateY(-1px);
         }
 
         .action-btn.download-btn {
             background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
             border: none;
-            color: #0a0a0f;
+            color: #08080c;
+            box-shadow: 0 4px 15px rgba(0, 242, 254, 0.25);
         }
 
         .action-btn.download-btn:hover {
-            filter: brightness(1.1);
-            color: #0a0a0f;
+            filter: brightness(1.15);
+            color: #08080c;
+            box-shadow: 0 4px 20px rgba(0, 242, 254, 0.45);
         }
 
-        /* Tooltip style */
-        .tooltip {
-            position: relative;
-            display: inline-block;
+        /* Beautiful Floating Custom Toast Notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid var(--primary);
+            box-shadow: 0 10px 40px rgba(0, 242, 254, 0.15), 0 0 20px rgba(0, 0, 0, 0.6);
+            border-radius: 12px;
+            padding: 1rem 1.4rem;
+            color: #ffffff;
+            font-size: 0.9rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            min-width: 300px;
+            max-width: 450px;
+            transform: translateY(100px);
+            opacity: 0;
+            animation: slideIn 0.3s forwards cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: auto;
+            backdrop-filter: blur(15px);
+        }
+
+        .toast.toast-accent {
+            border-color: var(--accent);
+            box-shadow: 0 10px 40px rgba(255, 0, 127, 0.15), 0 0 20px rgba(0, 0, 0, 0.6);
+            cursor: pointer;
+        }
+
+        .toast.toast-accent:hover {
+            background: rgba(30, 20, 35, 0.95);
+            transform: scale(1.02);
+        }
+
+        @keyframes slideIn {
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .toast.fadeOut {
+            animation: slideOut 0.3s forwards cubic-bezier(0.6, -0.28, 0.735, 0.045);
+        }
+
+        @keyframes slideOut {
+            to { transform: translateY(50px) scale(0.9); opacity: 0; }
+        }
+
+        .toast-icon {
+            font-size: 1.2rem;
+        }
+
+        .toast-content {
+            flex-grow: 1;
+        }
+
+        .toast-close {
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: color 0.2s;
+            font-size: 0.8rem;
+        }
+
+        .toast-close:hover {
+            color: #ffffff;
         }
     </style>
 </head>
 <body>
+    <div class="ambient-glow"></div>
+    <div class="ambient-glow-left"></div>
+
     <header>
-        <div class="glowing-title">🔮 Go GitOps Values Translator</div>
-        <div class="glowing-subtitle">Hyper-performance Go application to instantly migrate legacy stand-alone values configs to unified webapp Helm charts.</div>
+        <div class="brand">
+            <span class="brand-icon">🔮</span>
+            <div>
+                <h1 class="glowing-title">GitOps Migration Dashboard</h1>
+                <div class="glowing-subtitle">High-performance corporate migration tool to bridge legacy templates to unified charts.</div>
+            </div>
+        </div>
+
+        <!-- Master Tabs Selection -->
+        <nav class="main-tabs">
+            <button class="main-tab-btn active" id="valuesTabBtn" onclick="switchMainTab('values')">
+                <span>📦</span> Helm Values
+            </button>
+            <button class="main-tab-btn" id="argoTabBtn" onclick="switchMainTab('argo')">
+                <span>🚀</span> Argo CD App
+            </button>
+        </nav>
     </header>
 
     <div class="workspace">
         <!-- Sidebar Controls -->
         <aside>
-            <div class="sidebar-section">
-                <h3>⚙️ Environment Settings</h3>
-                <div class="form-group">
-                    <label for="cluster">Default Cluster Destination</label>
-                    <input type="text" id="cluster" value="{{.DefaultCluster}}">
+            <!-- Helm Values Panel Configurations -->
+            <div id="valuesConfigSection">
+                <div class="sidebar-section">
+                    <h3>⚙️ Destination Config</h3>
+                    <div class="form-group">
+                        <label for="cluster">Target Cluster Name</label>
+                        <input type="text" id="cluster" value="{{.DefaultCluster}}">
+                    </div>
+                    <div class="form-group">
+                        <label for="envOverride">Environment Mode</label>
+                        <select id="envOverride">
+                            <option value="">Auto-Detect from input</option>
+                            <option value="develop">develop (dev)</option>
+                            <option value="staging">staging (stg)</option>
+                            <option value="release">release (prep)</option>
+                            <option value="production">production (prod)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="teamOverride">Team namespace / project</label>
+                        <input type="text" id="teamOverride" placeholder="e.g. middleware, bcb">
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="useCommonConfigmap" checked>
+                        <label for="useCommonConfigmap">Use Common Configmap</label>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="envOverride">Force Environment Override</label>
-                    <select id="envOverride">
-                        <option value="">Detect Automatically</option>
-                        <option value="develop">develop</option>
-                        <option value="staging">staging</option>
-                        <option value="release">release</option>
-                        <option value="production">production</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="teamOverride">Force Team / Project</label>
-                    <input type="text" id="teamOverride" placeholder="e.g. middleware, integration">
-                </div>
-                <div class="checkbox-group">
-                    <input type="checkbox" id="useCommonConfigmap" checked>
-                    <label for="useCommonConfigmap">Use Common Configmap (commun)</label>
+
+                <div class="sidebar-section">
+                    <h3>☕ JVM Settings</h3>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="isJavaApp" checked>
+                        <label for="isJavaApp">Java Application</label>
+                    </div>
+                    <div id="jvmGroup" class="form-group">
+                        <label for="javaOpts">JAVA_TOOL_OPTIONS</label>
+                        <input type="text" id="javaOpts" value="{{.JavaToolOptions}}">
+                    </div>
                 </div>
             </div>
 
-            <div class="sidebar-section">
-                <h3>🚀 JVM & Resource Options</h3>
-                <div class="checkbox-group">
-                    <input type="checkbox" id="isJavaApp" checked>
-                    <label for="isJavaApp">Is Java / JVM Application</label>
-                </div>
-                <div id="jvmGroup" class="form-group">
-                    <label for="javaOpts">JAVA_TOOL_OPTIONS</label>
-                    <input type="text" id="javaOpts" value="{{.JavaToolOptions}}">
+            <!-- Argo CD App Config section (initially hidden) -->
+            <div id="argoConfigSection" style="display: none;">
+                <div class="sidebar-section">
+                    <h3>⚙️ Destination Config</h3>
+                    <div class="form-group">
+                        <label for="argoCluster">Target Cluster Name</label>
+                        <input type="text" id="argoCluster" value="{{.DefaultCluster}}">
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="syncPolicyEnabled" checked>
+                        <label for="syncPolicyEnabled">Automated Sync Policy</label>
+                    </div>
                 </div>
             </div>
         </aside>
 
-        <!-- Main workspace area -->
+        <!-- Main Workspace Area -->
         <main>
-            <!-- Horizontally ordered example templates selection -->
-            <div class="templates-card">
-                <h3>📋 Quick-Load Legacy Templates</h3>
-                <div class="templates-grid">
-                    <button class="template-btn" onclick="loadTemplate('accManager')">
-                        <span class="title">🔮 Account Manager (Dev)</span>
-                        <span class="desc">Develop env config (No secrets)</span>
-                    </button>
-                    <button class="template-btn" onclick="loadTemplate('linkser')">
-                        <span class="title">🔌 Linkser Connector (Dev)</span>
-                        <span class="desc">Linkser env (Ingress enabled)</span>
-                    </button>
-                    <button class="template-btn" onclick="loadTemplate('sealedSecrets')">
-                        <span class="title">🔒 Sealed Secrets (Prod)</span>
-                        <span class="desc">Production config (With Sealed Secrets)</span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- 2-Column work area -->
-            <div class="panels-grid">
-                <!-- Left: Source input -->
-                <div class="panel">
-                    <div class="panel-header">👈 Paste Old GitOps Values YAML</div>
-                    <textarea id="legacyYaml" placeholder="Paste legacy values-*.yaml contents here..."></textarea>
+            <!-- Values Migration View -->
+            <div id="valuesMigrationView" class="panel-view-container">
+                <!-- Horizontally ordered example templates selection -->
+                <div class="templates-card">
+                    <h3>📋 Legacy Values Templates</h3>
+                    <div class="templates-grid">
+                        <button class="template-btn" onclick="loadValuesTemplate('accManager')">
+                            <span class="title">🔮 Account Manager</span>
+                            <span class="desc">Develop env (No secrets)</span>
+                        </button>
+                        <button class="template-btn" onclick="loadValuesTemplate('linkser')">
+                            <span class="title">🔌 Linkser Connector</span>
+                            <span class="desc">Linkser env (Ingress enabled)</span>
+                        </button>
+                        <button class="template-btn" onclick="loadValuesTemplate('sealedSecrets')">
+                            <span class="title">🔒 Sealed Secrets</span>
+                            <span class="desc">Production config (With Sealed Secrets)</span>
+                        </button>
+                    </div>
                 </div>
 
-                <!-- Right: Translated output -->
-                <div class="panel">
-                    <div class="panel-header">👉 Translated Webapp Helm Values</div>
-                    <div class="result-container" id="resultContainer">
-                        <!-- Empty State initially -->
-                        <div class="empty-state" id="emptyState">
-                            <div class="icon">🔮</div>
-                            <div>Paste legacy YAML on the left panel or click one of the quick-load templates above to start instant translation.</div>
+                <!-- 2-Column work area -->
+                <div class="panels-grid" style="margin-top: 1.5rem;">
+                    <!-- Left: Source input -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <span>👈 Paste Old Values YAML</span>
+                        </div>
+                        <textarea id="legacyYaml" placeholder="Paste legacy values-*.yaml contents here..."></textarea>
+                    </div>
+
+                    <!-- Right: Translated output -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <span>👉 Migrated Outputs</span>
+                            <!-- Output sub-tabs -->
+                            <div class="output-tabs">
+                                <button class="output-tab-btn active" id="subTabValuesBtn" onclick="switchOutputSubTab('values')">Helm Values</button>
+                                <button class="output-tab-btn" id="subTabArgoBtn" onclick="switchOutputSubTab('argo')">Argo CD App</button>
+                            </div>
                         </div>
 
-                        <!-- Content wrapper (initially hidden) -->
-                        <div class="code-viewer-container" id="contentWrapper" style="display: none;">
-                            <!-- Target Suggested Path -->
-                            <div class="path-card">
-                                <div class="path-label">📍 Target Destination File Path</div>
-                                <div class="path-box">
-                                    <code id="targetPath">charts/webapp/values/on-premise/...</code>
-                                    <button class="copy-btn" id="copyPathBtn" onclick="copyPath()">Copy</button>
+                        <div class="result-container" id="resultContainer">
+                            <!-- Empty State initially -->
+                            <div class="empty-state" id="emptyState">
+                                <div class="icon">🔮</div>
+                                <div class="title">Awaiting Legacy Input</div>
+                                <div class="desc">Paste legacy values YAML on the left panel or click a quick-load template above to start instant migration.</div>
+                            </div>
+
+                            <!-- Content Wrapper (initially hidden) -->
+                            <div class="code-viewer-container" id="contentWrapper" style="display: none;">
+                                <!-- Target Path Card -->
+                                <div class="path-card">
+                                    <div class="path-label">
+                                        <span id="targetPathLabelIcon">📍</span>
+                                        <span id="targetPathLabel">Suggested Destination Path</span>
+                                    </div>
+                                    <div class="path-box">
+                                        <code id="targetPath">charts/webapp/values/on-premise/...</code>
+                                        <button class="copy-btn" id="copyPathBtn" onclick="copyPath()">Copy</button>
+                                    </div>
+                                </div>
+
+                                <!-- Legacy Delete Path Card -->
+                                <div class="path-card" id="deletePathCard" style="margin-top: 0.75rem; border-color: rgba(255, 0, 127, 0.25); display: none;">
+                                    <div class="path-label" style="color: var(--accent);">
+                                        <span>🗑️</span> Suggested Deletion Path (Legacy GitOps Repo)
+                                    </div>
+                                    <div class="path-box" style="border-color: rgba(255, 0, 127, 0.2); background: rgba(20, 10, 15, 0.45);">
+                                        <code id="deletePath" style="color: #ff80b3;">argocd/on-premise/...</code>
+                                        <button class="copy-btn" id="copyDeletePathBtn" style="background: linear-gradient(135deg, var(--accent) 0%, #ff80b3 100%); color: #08080c; box-shadow: 0 4px 10px rgba(255, 0, 127, 0.2);" onclick="copyDeletePath()">Copy</button>
+                                    </div>
+                                </div>
+
+                                <!-- Code View -->
+                                <div class="code-pre-wrapper">
+                                    <pre><code class="language-yaml" id="codeOutput"></code></pre>
+                                </div>
+
+                                <!-- Action buttons -->
+                                <div class="floating-action-bar">
+                                    <button class="action-btn" id="copyYamlBtn" onclick="copyYamlContent()">📋 Copy YAML</button>
+                                    <button class="action-btn download-btn" id="downloadBtn" onclick="downloadYaml()">📥 Download File</button>
                                 </div>
                             </div>
 
-                            <!-- Code editor/display -->
-                            <div class="code-pre-wrapper">
-                                <pre><code class="language-yaml" id="codeOutput"></code></pre>
-                            </div>
+                            <!-- Error Alert (initially hidden) -->
+                            <div class="error-alert" id="errorAlert" style="display: none;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-                            <!-- Action Bar -->
-                            <div class="floating-action-bar">
-                                <button class="action-btn" id="copyYamlBtn" onclick="copyYamlContent()">📋 Copy YAML Content</button>
-                                <button class="action-btn download-btn" onclick="downloadYaml()">📥 Download values.yaml</button>
-                            </div>
+            <!-- Argo CD App Migration View (initially hidden) -->
+            <div id="argoMigrationView" class="panel-view-container" style="display: none;">
+                <!-- Horizontally ordered example templates selection -->
+                <div class="templates-card">
+                    <h3>📋 Legacy Argo Application Templates</h3>
+                    <div class="templates-grid">
+                        <button class="template-btn" onclick="loadArgoTemplate('sptConnector')">
+                            <span class="title">🔌 SPT Connector</span>
+                            <span class="desc">Legacy commented manifest (bcb)</span>
+                        </button>
+                        <button class="template-btn" onclick="loadArgoTemplate('sptExtService')">
+                            <span class="title">🌐 SPT External Service</span>
+                            <span class="desc">Legacy commented manifest (bcb)</span>
+                        </button>
+                        <button class="template-btn" onclick="loadArgoTemplate('sptJobs')">
+                            <span class="title">💼 SPT Jobs Manifest</span>
+                            <span class="desc">Legacy commented manifest (bcb)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 2-Column work area -->
+                <div class="panels-grid" style="margin-top: 1.5rem;">
+                    <!-- Left: Source input -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <span>👈 Paste Legacy Argo App Manifest</span>
+                        </div>
+                        <textarea id="legacyArgoYaml" placeholder="Paste legacy Argo application.yaml contents here (commented or uncommented)..."></textarea>
+                    </div>
+
+                    <!-- Right: Translated output -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <span>👉 Migrated Argo CD App</span>
                         </div>
 
-                        <!-- Error Alert (initially hidden) -->
-                        <div class="error-alert" id="errorAlert" style="display: none;"></div>
+                        <div class="result-container" id="argoResultContainer">
+                            <!-- Empty State initially -->
+                            <div class="empty-state" id="argoEmptyState">
+                                <div class="icon">🚀</div>
+                                <div class="title">Awaiting Argo manifest</div>
+                                <div class="desc">Paste legacy Argo Application YAML on the left panel or click a quick-load template above to start translation.</div>
+                            </div>
+
+                            <!-- Content Wrapper (initially hidden) -->
+                            <div class="code-viewer-container" id="argoContentWrapper" style="display: none;">
+                                <!-- Target Path Card -->
+                                <div class="path-card">
+                                    <div class="path-label">
+                                        <span>📍</span> Suggested Destination Path
+                                    </div>
+                                    <div class="path-box">
+                                        <code id="argoTargetPath">cluster/on-premise/...</code>
+                                        <button class="copy-btn" id="copyArgoPathBtn" onclick="copyArgoPath()">Copy</button>
+                                    </div>
+                                </div>
+
+                                <!-- Legacy Delete Path Card -->
+                                <div class="path-card" id="argoDeletePathCard" style="margin-top: 0.75rem; border-color: rgba(255, 0, 127, 0.25);">
+                                    <div class="path-label" style="color: var(--accent);">
+                                        <span>🗑️</span> Suggested Deletion Path (Legacy GitOps Repo)
+                                    </div>
+                                    <div class="path-box" style="border-color: rgba(255, 0, 127, 0.25); background: rgba(20, 10, 15, 0.45);">
+                                        <code id="argoDeletePath">argocd/on-premise/...</code>
+                                        <button class="copy-btn" id="copyArgoDeletePathBtn" style="background: linear-gradient(135deg, var(--accent) 0%, #ff80b3 100%); color: #08080c; box-shadow: 0 4px 10px rgba(255, 0, 127, 0.2);" onclick="copyArgoDeletePath()">Copy</button>
+                                    </div>
+                                </div>
+
+                                <!-- Code View -->
+                                <div class="code-pre-wrapper">
+                                    <pre><code class="language-yaml" id="argoCodeOutput"></code></pre>
+                                </div>
+
+                                <!-- Action buttons -->
+                                <div class="floating-action-bar">
+                                    <button class="action-btn" id="copyArgoYamlBtn" onclick="copyArgoYamlContent()">📋 Copy YAML</button>
+                                    <button class="action-btn download-btn" onclick="downloadArgoYaml()">📥 Download File</button>
+                                </div>
+                            </div>
+
+                            <!-- Error Alert (initially hidden) -->
+                            <div class="error-alert" id="argoErrorAlert" style="display: none;"></div>
+                        </div>
                     </div>
                 </div>
             </div>
         </main>
     </div>
 
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
     <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
     <script>
+        // Sample data templates
         const SAMPLE_ACC_MANAGER = `nameOverride: account-manager
 environment: develop
 team: middleware
@@ -693,7 +1107,7 @@ sealed:
   data: 
     ORACLE_DATABASE: AgAWyABA/emrNAEoz7WJzO9ExdeJSZs8XM0YYKX3QzspSaawbBmIkv0bR4WTLDuUCKPlBZLGYcjC5rp+5Gy79X5aDq7SofMW1++/4RhFGptkebI+5FIpYGj3wRXYZqHfupxkUeq3FGVeaQIw5ryanAIMtADvk2WPykD2p+HBx08gSdAr8+A5j78KI8tJaT8N7I99+sODIu2bi2m9UJMNCHBCB2ai90uneddkxPDO0tcPYjV0oIrnpaqRk+WHj3vk+u+ieeoujKvEBrCGzkclrsI4Zv6v8NlmAs2MGScM35qesb++dsmTmhThu0EXwjpYGjqxiAebfR7c66c1TP7qgIwdgdv8YufGHmlBY/OMet/F1ebv8EMtwsaiucxPy14rZqj97kLJ67p6vdVM+PLdE8LwtCB0qFSeFjpONCgbwWt4z64C/Jlh9UMw/JMxMI8VKhzOKjIPD2rKmAFtfWu4lg2QrWb28VA3aafFrgj/k7zJ4P+y0LwqIeqayR2B38xbaxBRXbHmAwsq1priuTu31LDCitWYL1jzOTRWXsjWxMBX/abybfwcVM7lcpnXsvMT2zvvmbWIlXi0hEV/52fZo1lkI9U7AHQJ96YRxd1a3lpw+6d+DTPhkfzlXJu2j+Px7Rjk/yft/jipqv/NflxJWQ4JMviE4uyKszM8BlhH7CZRbdww26AMtUSml1reikZ1cq37sjiVI/gxxrZH
     ORACLE_PASSWORD: AgC1Cqzrh69CSfXSsGsJHUE7VZQwfv5DGv5AFmMZPztvSXtynUD6pooz6fRDVCk5EbrtkawxEHJHOMSpYqa5lwaj6ovvl5oPMznsM7gWcfm/G0Wa25F19Phg2U+U1+kCkECwpyV8eUpZn77O0SMtk5TNO8rmzTTSFe7r6kA7WD07PV/+L7kLFpEfIJ8qehl/qk60eYlzg/hDFh7dk+fmS/j5OXMN/dwAH7Zp7OgdX3c5qdJUk/6STs7wkvqSybVHgnxaxN6AhCYT9morLW29jTbGlQd41mcHT/rEKXM/Ku0HzA+95Lp1mzpB9XeVkbOo11/lGntZRNubjBBFjtq8ThjwQIx1cYMKKheGyKvZf/E9bP8rYENMFybYoEc5lJpe1Md3j440DWHrWJRUjuCBR8qmVwcYRJaED3Q9WdY5TwFfb7kgDrST+ZpVcDv9I2EgUHUXueW2CaGq2UIqNYYfeCnzJp2rk1JVBaD4QCnJDxSlm1+yNwQ1p2wk/izpQSgO2Lyl5APSexcE2KeDcdvDOJweE3WuWAXrQTb5f1buHhXVKHiEnDTnpSb7gFsXBQsh2cdGYSI8B5kza33BtjKtoqCKJBUp4SWYp1tWkMKrCMaq8lmCmOS73T7wuTfgJkR50Kqsy+JbGN+nO9XxlyTADfn1dhLQMILok5pizUyzoid5gSSBCZwlQ+nHMiPSnqRN1nN1VCZv3/g=
-    ORACLE_PORT: AgBLjXJr5T8mariSjDy6wKLDyJIh9we4Jc9Uzenj1rgQNzI6+HZpgi01S0XraAeSlIrJ7lu4iZhGM5eTD3AwrN9byLFp4+oTsBNdvyGXcUwWvgCeJj7Dv82e2Q1RqU36dvBLIQ0AmyUFfw++9LBx6btVZRfRmudV5kLZoxLqT4orAeMjufrHRyfAgPbrQRJsLllAzFi68xX+Lze6qQPsquJ9o/vu8ro3es9vyIkSieX+maVa3pWnT+sF4t+KmqASxTH9gxiO/z950Vq4Y6/irSwyjiIhxrOFEfMaQZVzfdW32uigwA6QhVWFRqFZJ8RIFGhEKpuWwAsH9WA5FrzSZJMmvLYcJuDpf6YVc2evlJQdYNYxcHTofZXH4ZWE+CGJAoH2UhIImDMDwgomV+FUQgBro8/jAYDypZJQVPaj+FOaptYtyV24vn613zbCRDcndrJvco4Dfuhb4kHK++ZHUqhtULbq9qZK2/Ytlvspo3RQKa0gwXNBOYk8vbmeQFm6RysSadTdIrkmYq96/J7mKjFf8599zIbFbdhUXLE0hYg5ynXwI30F2zAhst2Btk2AQsiD25l43k3KuAGtjkouSfth4ojJ6oqRhkupIAj8+4k+hX/e4xVqEi08T/iknQPYFf8iAKZkUC1r9x6/fudk6+0L6rA4eSKFnGUrsaHJieL4KQfje7/BopVAQCDlG1XyPtZj2vyo
+    ORACLE_PORT: AgBLjXJr5T8mariSjDy6wKLDyJIh9we4Jc9Uzenj1rgQNzI6+HZpgi01S0XraAeSlIrJ7lu4iZhGM5eTD3AwrN9byLFp4+oTsBNdvyGXcUwWvgCeJj7Dv82e2Q1RqU36dvBLIQ0AmyUFfw++9LBx6btVZRfRmudV5kLZoxLqT4orAeMjufrHRyfAgPbrQRJsLllAzFi68xX+Lze6qQPsquJ9o/vu8ro3es9vyIkSieX+maVa3oWnT+sF4t+KmqASxTH9gxiO/z950Vq4Y6/irSwyjiIhxrOFEfMaQZVzfdW32uigwA6QhVWFRqFZJ8RIFGhEKpuWwAsH9WA5FrzSZJMmvLYcJuDpf6YVc2evlJQdYNYxcHTofZXH4ZWE+CGJAoH2UhIImDMDwgomV+FUQgBro8/jAYDypZJQVPaj+FOaptYtyV24vn613zbCRDcndrJvco4Dfuhb4kHK++ZHUqhtULbq9qZK2/Ytlvspo3RQKa0gwXNBOYk8vbmeQFm6RysSadTdIrkmYq96/J7mKjFf8599zIbFbdhUXLE0hYg5ynXwI30F2zAhst2Btk2AQsiD25l43k3KuAGtjkouSfth4ojJ6oqRhkupIAj8+4k+hX/e4xVqEi08T/iknQPYFf8iAKZkUC1r9x6/fudk6+0L6rA4eSKFnGUrsaHJieL4KQfje7/BopVAQCDlG1XyPtZj2vyo
     ORACLE_SERVER: AgCjnhcZksAxSaMUSEVZFtRS7vbGn642ddYsf2EtkifjqWCs6WDS3ELcmhJxRr/Z9ulEJNHAu2LafX26T/e4iLaNid333jleJdPCgD7RuPgtbBCUbbEA5fZDlg+rRmd9cI8R1bTHA9LzNdY2ZmpynAknqYzyxDvLP3g1l53bbTM1DqqOBR0BOcDhMKQbsYWPzA3NzozU8DWbBmNZ6AJh//FhG1vArMkWT7egA75ltyO04YM/OlvaBbjlFe+FhJPIzU6mMmgSbCUIKIjCg5b76v76h0gEUQDnEhG0rq093fG74KkCi+gapKr3E56udzHju5wobrpRxRsJgdquPov7Rcd3pDEZat+v8OuZbLiRsvaSTQGT8ylozIgUcPSBXb1mxc9Fio2RNHBh1xUa9jE06/xETFQKzOB5mbxFWX/eBf0gdWXjksLE1Y2x2eGA4YO+2VQAeToMQsevE16+djEi5I18ucZldqo4jbS1Pn1PyPeVOcxv1fwFky+JwlyK3h4mz1jCDmUgV2wYb1qSARzvBONOt+A97q5Rrt93Xs5oxLkxxEOxf2zHKRzXk/3JHewJElroIJgOUWy8Eosq+o4CrkLho3KNpUbQq26BiptC+q1SDL/p80HWWbAbaPy5dpxK8CcKodnPsDZd8xx4VsVk2GW+RXbrWc8S30AgRZcWOESbmr6OgRpR0W7HQV38x5pmOW1JZ3zr5IKaOfr+5OpY6R66gw==
     ORACLE_USER: AgArUWICFh4zdbFW5HVyVt2k1WTYFi655hLNCZHVjb1vVMpREoLX14aiNT+TXVM8InhHgigwU4UtwxQHqFQJPjF4PF/9sfxZwov1oF4lxS1IByjr2kSJmNCR4yaKKo01FbZyqPCyMF3I6bWm8+6ZdQmfCb4peujr9OsQNTMsQundsUGx3k6penI0Lu0n1FVPfTdIsamEMqMfAAgVrATRuH3OwKpBvVKdAvvtHu3RoHVE9CD7UbNqFRI4wVdVBFzszbp4y+d7gHCZ35harntHgOO0KUBqF3yd81lJeW0kPHzgt3aJ+KpARm9c+lVECfhnA9jpFw73MhUORdQrVMJCn3O7c1v69vXnpV9TYjCwi4NU66l7oYgkO0y6nqYpu5lIQigcIHKa+MU9Um7UOuYFRNHIx0Sq4UlOyXi+OyoDAcjNIMQQGIE0fqpTErOF59XSLuZdp+mintz+ai4bHD/+ALIW4jQEfFuNqdhKmkO1v+z03dYJrWEQ4IE82QSJt7tJDTX+60jPo8+3lfyuvXRFc81gf7Sv5LgO01kLll1wB+Oc6i4K6d0aNm2C0es7hASnIPhIOUokU7d1Jv3B6sq7OdgcUpS1pjGFA/9tSqaHDnsXA3pzIx9CaXdz4gqA8aCZuhbh2IXL4QjBrryg8iMK2TFsjf604g4/hLoGj3ZqYwNcI4JLlm5inMMSJXCcFERntl6jsq+DMahj9
     REDIS_SERVER: AgAeIvNtGKXYPc90GtYwLV6MTpHw8zot0XvomOlvr9CgrFNaKgAbqcC2LqstEyDq35qTLpL/UJl2BLYZCgzGny6G6S6H1sD65HyUZiPLldqyFmnCqfDsCONZdkT7L+zleaFonF/4BYB37ueK9GAPVTTXiTia6A9vO0tXFE30jAHcnGvfNhQ61wwkAp1ca8dFpfD/Q9rP5hh0sRnxjAsFQhtVByUJndY8gfjrs6dEf0CopkQ7gxjLxrTv635Nf2VKCsRWpDMtLY5p/Uwg4ftvKiloKh0UbKJIlulBz+aF2G//4YJwuiQDvCLzin29HFsQxnkL5ovtApwbKXjKzDreIEVqW+gkvOfYpVJQdnUSQ9RAxXl0Lgb0oN8kZQj1OWUOIMbMS0rtrZA7B7pJTM01F8fp1LoF3lu5X5UYm6BuvAHknfaDwLEMkx+VxlRr1TXlp96hdDiL0aQc9hcFakPd+KOMJ73BflUm3KHlaRhjo4du/PaZ5KSdD71KOe1XyfEjbyf7g3dNwLu+KnqHXoJ2vR/1yZauzuaw0bUMM7RuW62JmAvCeYB7DVYX3KGHfsZDWF3NRasZL0hoyb8bHcw/KzWz2yQBXKCaiVEUhs1Iki8PBx5EXhYZDulGFwV3SZ/mgjfTf8KXX3+Inkqi+ygzpjBjc9HaYHDHmS14pYl4wRWZUsjplWNmnhSkBNRLdsBlQPLZlwlGpCyl1VCTx5+4L2bTO78E4OWxkMPrNm0EQ9onfSA+elE=
@@ -708,6 +1122,67 @@ ingress:
           pathType: Prefix
 `;
 
+        const SAMPLE_ARGO_SPT_CONNECTOR = `# ---
+# apiVersion: argoproj.io/v1alpha1
+# kind: Application
+# metadata:
+#   name: bcb-spt-connector
+#   namespace: argocd
+# spec:
+#   project: az-devops-gitops
+#   source:
+#     repoURL: https://BancoGanadero@dev.azure.com/BancoGanadero/BGA-Internal/_git/gitops
+#     path: infra/bcb/spt-connector
+#     targetRevision: main
+#     helm:
+#       valueFiles:
+#         - values-develop.yaml
+#   destination:
+#     server: https://kubernetes.default.svc
+#     namespace: bcb
+`;
+
+        const SAMPLE_ARGO_SPT_EXT = `# ---
+# apiVersion: argoproj.io/v1alpha1
+# kind: Application
+# metadata:
+#   name: bcb-spt-ext-service
+#   namespace: argocd
+# spec:
+#   project: az-devops-gitops
+#   source:
+#     repoURL: https://BancoGanadero@dev.azure.com/BancoGanadero/BGA-Internal/_git/gitops
+#     path: infra/bcb/spt-ext-service
+#     targetRevision: main
+#     helm:
+#       valueFiles:
+#         - values-develop.yaml
+#   destination:
+#     server: https://kubernetes.default.svc
+#     namespace: bcb
+`;
+
+        const SAMPLE_ARGO_SPT_JOBS = `# ---
+# apiVersion: argoproj.io/v1alpha1
+# kind: Application
+# metadata:
+#   name: bcb-spt-jobs
+#   namespace: argocd
+# spec:
+#   project: az-devops-gitops
+#   source:
+#     repoURL: https://BancoGanadero@dev.azure.com/BancoGanadero/BGA-Internal/_git/gitops
+#     path: infra/bcb/spt-jobs
+#     targetRevision: main
+#     helm:
+#       valueFiles:
+#         - values-develop.yaml
+#   destination:
+#     server: https://kubernetes.default.svc
+#     namespace: bcb
+`;
+
+        // UI inputs and states
         const inputs = {
             cluster: document.getElementById('cluster'),
             envOverride: document.getElementById('envOverride'),
@@ -715,45 +1190,198 @@ ingress:
             useCommonConfigmap: document.getElementById('useCommonConfigmap'),
             isJavaApp: document.getElementById('isJavaApp'),
             javaOpts: document.getElementById('javaOpts'),
-            legacyYaml: document.getElementById('legacyYaml')
+            legacyYaml: document.getElementById('legacyYaml'),
+            
+            // Argo migration elements
+            argoCluster: document.getElementById('argoCluster'),
+            syncPolicyEnabled: document.getElementById('syncPolicyEnabled'),
+            legacyArgoYaml: document.getElementById('legacyArgoYaml')
         };
 
-        const view = {
+                const view = {
             emptyState: document.getElementById('emptyState'),
             contentWrapper: document.getElementById('contentWrapper'),
             errorAlert: document.getElementById('errorAlert'),
             targetPath: document.getElementById('targetPath'),
-            codeOutput: document.getElementById('codeOutput')
+            deletePathCard: document.getElementById('deletePathCard'),
+            deletePath: document.getElementById('deletePath'),
+            codeOutput: document.getElementById('codeOutput'),
+            
+            // Argo migration elements
+            argoEmptyState: document.getElementById('argoEmptyState'),
+            argoContentWrapper: document.getElementById('argoContentWrapper'),
+            argoErrorAlert: document.getElementById('argoErrorAlert'),
+            argoTargetPath: document.getElementById('argoTargetPath'),
+            argoDeletePathCard: document.getElementById('argoDeletePathCard'),
+            argoDeletePath: document.getElementById('argoDeletePath'),
+            argoCodeOutput: document.getElementById('argoCodeOutput')
         };
 
-        // Listen for input changes to translate in real-time
-        Object.values(inputs).forEach(input => {
-            input.addEventListener('input', triggerTranslation);
-            input.addEventListener('change', triggerTranslation);
+        // Cache for Values Dual Output
+        let translationResults = {
+            valuesYaml: '',
+            valuesPath: '',
+            argoYaml: '',
+            argoPath: '',
+            deletePath: ''
+        };
+        let currentSubTab = 'values'; // 'values' or 'argo'
+        let activeMainTab = 'values'; // 'values' or 'argo'
+
+        // Setup Event Listeners for real-time translation
+        const valueInputsList = [inputs.cluster, inputs.envOverride, inputs.teamOverride, inputs.useCommonConfigmap, inputs.isJavaApp, inputs.javaOpts, inputs.legacyYaml];
+        valueInputsList.forEach(input => {
+            input.addEventListener('input', triggerValuesTranslation);
+            input.addEventListener('change', triggerValuesTranslation);
+        });
+
+        const argoInputsList = [inputs.argoCluster, inputs.syncPolicyEnabled, inputs.legacyArgoYaml];
+        argoInputsList.forEach(input => {
+            input.addEventListener('input', triggerArgoTranslation);
+            input.addEventListener('change', triggerArgoTranslation);
         });
 
         // Toggle JVM inputs based on Java app checkbox
         inputs.isJavaApp.addEventListener('change', () => {
             const jvmGroup = document.getElementById('jvmGroup');
-            if (inputs.isJavaApp.checked) {
-                jvmGroup.style.display = 'flex';
-            } else {
-                jvmGroup.style.display = 'none';
+            jvmGroup.style.display = inputs.isJavaApp.checked ? 'flex' : 'none';
+        });
+
+        // Watch legacyYaml for auto-detect of Argo manifests
+        inputs.legacyYaml.addEventListener('input', () => {
+            const val = inputs.legacyYaml.value.trim();
+            if (val.includes('apiVersion: argoproj') || val.includes('kind: Application') || val.includes('metadata:\n  name:')) {
+                showSmartToast();
             }
-            triggerTranslation();
         });
 
-        // Fast JS Blur on paste event to prevent layout flashing
-        inputs.legacyYaml.addEventListener('paste', () => {
-            setTimeout(() => {
-                inputs.legacyYaml.blur();
-                inputs.legacyYaml.focus();
-            }, 100);
-        });
+        // Smart Toast trigger control
+        let isToastVisible = false;
+        function showSmartToast() {
+            if (isToastVisible) return;
+            isToastVisible = true;
+            createToast("💡 Detected Argo CD Application YAML! Click here to switch to Argo CD App Migration tab.", "toast-accent", () => {
+                // Click action
+                switchMainTab('argo');
+                // Move text to argo input
+                inputs.legacyArgoYaml.value = inputs.legacyYaml.value;
+                inputs.legacyYaml.value = '';
+                triggerArgoTranslation();
+                triggerValuesTranslation();
+            });
+        }
 
-        let currentTranslation = '';
+        // Custom Toast System
+        function createToast(msg, className = "", clickHandler = null) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${className}`;
+            
+            const icon = document.createElement('span');
+            icon.className = 'toast-icon';
+            icon.innerText = className.includes('accent') ? '⚡' : '✅';
+            
+            const content = document.createElement('div');
+            content.className = 'toast-content';
+            content.innerText = msg;
 
-        function loadTemplate(type) {
+            const close = document.createElement('span');
+            close.className = 'toast-close';
+            close.innerText = '✕';
+            close.onclick = (e) => {
+                e.stopPropagation();
+                dismiss();
+            };
+
+            toast.appendChild(icon);
+            toast.appendChild(content);
+            toast.appendChild(close);
+
+            if (clickHandler) {
+                toast.style.cursor = 'pointer';
+                toast.onclick = () => {
+                    clickHandler();
+                    dismiss();
+                };
+            }
+
+            container.appendChild(toast);
+
+            const autoDismiss = setTimeout(dismiss, className.includes('accent') ? 7000 : 3500);
+
+            function dismiss() {
+                clearTimeout(autoDismiss);
+                toast.classList.add('fadeOut');
+                toast.addEventListener('animationend', () => {
+                    toast.remove();
+                    if (className.includes('accent')) {
+                        isToastVisible = false;
+                    }
+                });
+            }
+        }
+
+        // Switch main translation tabs
+        function switchMainTab(tab) {
+            activeMainTab = tab;
+            
+            const vTabBtn = document.getElementById('valuesTabBtn');
+            const aTabBtn = document.getElementById('argoTabBtn');
+            const vView = document.getElementById('valuesMigrationView');
+            const aView = document.getElementById('argoMigrationView');
+            const vSidebar = document.getElementById('valuesConfigSection');
+            const aSidebar = document.getElementById('argoConfigSection');
+
+            if (tab === 'values') {
+                vTabBtn.classList.add('active');
+                aTabBtn.classList.remove('active');
+                vView.style.display = 'block';
+                aView.style.display = 'none';
+                vSidebar.style.display = 'block';
+                aSidebar.style.display = 'none';
+            } else {
+                aTabBtn.classList.add('active');
+                vTabBtn.classList.remove('active');
+                aView.style.display = 'block';
+                vView.style.display = 'none';
+                aSidebar.style.display = 'block';
+                vSidebar.style.display = 'none';
+            }
+        }
+
+        // Switch outputs subtabs in Values Tab
+        function switchOutputSubTab(sub) {
+            currentSubTab = sub;
+            const subTabValuesBtn = document.getElementById('subTabValuesBtn');
+            const subTabArgoBtn = document.getElementById('subTabArgoBtn');
+            const targetPathLabel = document.getElementById('targetPathLabel');
+            const targetPathLabelIcon = document.getElementById('targetPathLabelIcon');
+
+            if (sub === 'values') {
+                subTabValuesBtn.classList.add('active');
+                subTabArgoBtn.classList.remove('active');
+                targetPathLabel.innerText = "Suggested Webapp values.yaml Destination Path";
+                targetPathLabelIcon.innerText = "📦";
+                
+                view.targetPath.innerText = translationResults.valuesPath;
+                view.codeOutput.textContent = translationResults.valuesYaml;
+                view.deletePathCard.style.display = 'none';
+            } else {
+                subTabArgoBtn.classList.add('active');
+                subTabValuesBtn.classList.remove('active');
+                targetPathLabel.innerText = "Suggested companion Argo CD Application Destination Path";
+                targetPathLabelIcon.innerText = "🚀";
+                
+                view.targetPath.innerText = translationResults.argoPath;
+                view.codeOutput.textContent = translationResults.argoYaml;
+                view.deletePath.innerText = translationResults.deletePath;
+                view.deletePathCard.style.display = 'block';
+            }
+            Prism.highlightElement(view.codeOutput);
+        }
+
+        // Load Legacies templates
+        function loadValuesTemplate(type) {
             if (type === 'accManager') {
                 inputs.legacyYaml.value = SAMPLE_ACC_MANAGER;
             } else if (type === 'linkser') {
@@ -761,18 +1389,39 @@ ingress:
             } else if (type === 'sealedSecrets') {
                 inputs.legacyYaml.value = SAMPLE_RELEASE_SEALED;
             }
-            triggerTranslation();
+            triggerValuesTranslation();
+            createToast("Values template loaded successfully.");
         }
 
-        let debounceTimeout;
-        function triggerTranslation() {
-            clearTimeout(debounceTimeout);
-            debounceTimeout = setTimeout(performTranslation, 50); // 50ms quick debounce
+        function loadArgoTemplate(type) {
+            if (type === 'sptConnector') {
+                inputs.legacyArgoYaml.value = SAMPLE_ARGO_SPT_CONNECTOR;
+            } else if (type === 'sptExtService') {
+                inputs.legacyArgoYaml.value = SAMPLE_ARGO_SPT_EXT;
+            } else if (type === 'sptJobs') {
+                inputs.legacyArgoYaml.value = SAMPLE_ARGO_SPT_JOBS;
+            }
+            triggerArgoTranslation();
+            createToast("Argo CD manifest template loaded successfully.");
         }
 
-        async function performTranslation() {
-            const sourceText = inputs.legacyYaml.value.trim();
-            if (!sourceText) {
+        // Realtime debouncing
+        let valuesTimeout;
+        function triggerValuesTranslation() {
+            clearTimeout(valuesTimeout);
+            valuesTimeout = setTimeout(performValuesTranslation, 60);
+        }
+
+        let argoTimeout;
+        function triggerArgoTranslation() {
+            clearTimeout(argoTimeout);
+            argoTimeout = setTimeout(performArgoTranslation, 60);
+        }
+
+        // Backend callers
+        async function performValuesTranslation() {
+            const text = inputs.legacyYaml.value.trim();
+            if (!text) {
                 view.emptyState.style.display = 'flex';
                 view.contentWrapper.style.display = 'none';
                 view.errorAlert.style.display = 'none';
@@ -780,7 +1429,7 @@ ingress:
             }
 
             const payload = {
-                yaml: sourceText,
+                yaml: text,
                 cluster: inputs.cluster.value || 'on-premise',
                 envOverride: inputs.envOverride.value || '',
                 teamOverride: inputs.teamOverride.value || '',
@@ -797,56 +1446,143 @@ ingress:
                 const result = await response.json();
 
                 if (!response.ok || result.error) {
-                    showError(result.error || 'Server error translating YAML');
+                    showValuesError(result.error || 'Server error translating legacy values');
                     return;
                 }
 
-                currentTranslation = result.translated;
-                view.targetPath.innerText = result.targetPath;
-                view.codeOutput.textContent = result.translated;
+                // Update cache
+                translationResults.valuesYaml = result.translated;
+                translationResults.valuesPath = result.targetPath;
+                translationResults.argoYaml = result.associatedArgoApp;
+                translationResults.argoPath = result.associatedArgoAppPath;
+                translationResults.deletePath = result.legacyArgoAppDeletePath;
 
-                // Refresh Prism Syntax Highlighting
-                Prism.highlightElement(view.codeOutput);
+                // Sync current visible outputs
+                switchOutputSubTab(currentSubTab);
 
                 view.emptyState.style.display = 'none';
                 view.errorAlert.style.display = 'none';
                 view.contentWrapper.style.display = 'flex';
             } catch (err) {
-                showError('Network error connecting to translation backend: ' + err.message);
+                showValuesError('Network connection failed: ' + err.message);
             }
         }
 
-        function showError(msg) {
+        async function performArgoTranslation() {
+            const text = inputs.legacyArgoYaml.value.trim();
+            if (!text) {
+                view.argoEmptyState.style.display = 'flex';
+                view.argoContentWrapper.style.display = 'none';
+                view.argoErrorAlert.style.display = 'none';
+                return;
+            }
+
+            const payload = {
+                yaml: text,
+                cluster: inputs.argoCluster.value || 'on-premise',
+                syncPolicyEnabled: inputs.syncPolicyEnabled.checked
+            };
+
+            try {
+                const response = await fetch('/api/translate-argo-app', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+
+                if (!response.ok || result.error) {
+                    showArgoError(result.error || 'Server error translating Argo manifest');
+                    return;
+                }
+
+                view.argoTargetPath.innerText = result.targetPath;
+                view.argoDeletePath.innerText = result.legacyArgoAppDeletePath;
+                view.argoCodeOutput.textContent = result.translated;
+                Prism.highlightElement(view.argoCodeOutput);
+
+                view.argoEmptyState.style.display = 'none';
+                view.argoErrorAlert.style.display = 'none';
+                view.argoContentWrapper.style.display = 'flex';
+            } catch (err) {
+                showArgoError('Network connection failed: ' + err.message);
+            }
+        }
+
+        function showValuesError(msg) {
             view.errorAlert.innerText = msg;
             view.emptyState.style.display = 'none';
             view.contentWrapper.style.display = 'none';
             view.errorAlert.style.display = 'block';
         }
 
+        function showArgoError(msg) {
+            view.argoErrorAlert.innerText = msg;
+            view.argoEmptyState.style.display = 'none';
+            view.argoContentWrapper.style.display = 'none';
+            view.argoErrorAlert.style.display = 'block';
+        }
+
+        // Clipboard Copy Handlers
         function copyPath() {
-            const pathText = view.targetPath.innerText;
-            navigator.clipboard.writeText(pathText);
-            const btn = document.getElementById('copyPathBtn');
-            btn.innerText = 'Copied!';
-            setTimeout(() => { btn.innerText = 'Copy'; }, 1500);
+            const val = view.targetPath.innerText;
+            navigator.clipboard.writeText(val);
+            createToast("📍 Destination path copied to clipboard!");
+        }
+
+        function copyDeletePath() {
+            const val = view.deletePath.innerText;
+            navigator.clipboard.writeText(val);
+            createToast("🗑️ Legacy deletion path copied to clipboard!");
+        }
+
+        function copyArgoPath() {
+            const val = view.argoTargetPath.innerText;
+            navigator.clipboard.writeText(val);
+            createToast("📍 Argo destination path copied to clipboard!");
+        }
+
+        function copyArgoDeletePath() {
+            const val = view.argoDeletePath.innerText;
+            navigator.clipboard.writeText(val);
+            createToast("🗑️ Legacy deletion path copied to clipboard!");
         }
 
         function copyYamlContent() {
-            if (!currentTranslation) return;
-            navigator.clipboard.writeText(currentTranslation);
-            const btn = document.getElementById('copyYamlBtn');
-            const originalText = btn.innerText;
-            btn.innerText = '✅ Copied!';
-            setTimeout(() => { btn.innerText = originalText; }, 1500);
+            const txt = view.codeOutput.textContent;
+            navigator.clipboard.writeText(txt);
+            createToast("📋 Translated YAML copied to clipboard!");
         }
 
+        // Copy directly on argo panel
+        function copyArgoYamlContent() {
+            const txt = view.argoCodeOutput.textContent;
+            navigator.clipboard.writeText(txt);
+            createToast("📋 Migrated Argo manifest copied to clipboard!");
+        }
+
+        // Downloads
         function downloadYaml() {
-            if (!currentTranslation) return;
-            const blob = new Blob([currentTranslation], { type: 'text/yaml' });
+            const txt = view.codeOutput.textContent;
+            if (!txt) return;
+            const filename = currentSubTab === 'values' ? 'values.yaml' : 'application.yaml';
+            triggerDownload(txt, filename);
+            createToast(`📥 Downloaded ${filename}!`);
+        }
+
+        function downloadArgoYaml() {
+            const txt = view.argoCodeOutput.textContent;
+            if (!txt) return;
+            triggerDownload(txt, 'application.yaml');
+            createToast(`📥 Downloaded application.yaml!`);
+        }
+
+        function triggerDownload(content, filename) {
+            const blob = new Blob([content], { type: 'text/yaml' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'values.yaml';
+            a.download = filename;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);

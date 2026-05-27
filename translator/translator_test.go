@@ -174,3 +174,60 @@ continuationLine
 	}
 }
 
+const sampleArgoLegacy = `# ---
+# apiVersion: argoproj.io/v1alpha1
+# kind: Application
+# metadata:
+#   name: bcb-spt-connector
+#   namespace: argocd
+# spec:
+#   project: az-devops-gitops
+#   source:
+#     repoURL: https://BancoGanadero@dev.azure.com/BancoGanadero/BGA-Internal/_git/gitops
+#     path: infra/bcb/spt-connector
+#     targetRevision: main
+#     helm:
+#       valueFiles:
+#         - values-develop.yaml
+#   destination:
+#     server: https://kubernetes.default.svc
+#     namespace: bcb`
+
+func TestTranslateArgoAppCommented(t *testing.T) {
+	output, path, delPath, err := TranslateArgoApp(sampleArgoLegacy, "on-premise", true)
+	if err != nil {
+		t.Fatalf("unexpected error translating legacy Argo app: %v", err)
+	}
+
+	if !strings.Contains(path, "cluster/on-premise/develop/apps/bcb/spt-connector.yaml") {
+		t.Errorf("expected target path to be cluster/on-premise/develop/apps/bcb/spt-connector.yaml, got %s", path)
+	}
+
+	if delPath != "argocd/on-premise/develop/bcb/spt-connector.yaml" {
+		t.Errorf("expected deletion path to be argocd/on-premise/develop/bcb/spt-connector.yaml, got %s", delPath)
+	}
+
+	if !strings.Contains(output, "name: bcb-spt-connector") {
+		t.Errorf("expected translated app name to be bcb-spt-connector, got:\n%s", output)
+	}
+
+	if !strings.Contains(output, "project: bcb") {
+		t.Errorf("expected translated project to be bcb, got:\n%s", output)
+	}
+
+	if !strings.Contains(output, "syncPolicy:") {
+		t.Errorf("expected translated app to have syncPolicy, got:\n%s", output)
+	}
+}
+
+func TestTranslateArgoAppCommentedOutSyncPolicy(t *testing.T) {
+	output, _, _, err := TranslateArgoApp(sampleArgoLegacy, "on-premise", false)
+	if err != nil {
+		t.Fatalf("unexpected error translating legacy Argo app: %v", err)
+	}
+
+	if !strings.Contains(output, "# syncPolicy:") {
+		t.Errorf("expected translated app to have commented out syncPolicy, got:\n%s", output)
+	}
+}
+

@@ -26,9 +26,25 @@ type TranslationRequest struct {
 }
 
 type TranslationResponse struct {
-	Translated string `json:"translated,omitempty"`
-	TargetPath string `json:"targetPath,omitempty"`
-	Error      string `json:"error,omitempty"`
+	Translated              string `json:"translated,omitempty"`
+	TargetPath              string `json:"targetPath,omitempty"`
+	AssociatedArgoApp       string `json:"associatedArgoApp,omitempty"`
+	AssociatedArgoAppPath   string `json:"associatedArgoAppPath,omitempty"`
+	LegacyArgoAppDeletePath string `json:"legacyArgoAppDeletePath,omitempty"`
+	Error                   string `json:"error,omitempty"`
+}
+
+type ArgoTranslationRequest struct {
+	YAML              string `json:"yaml"`
+	Cluster           string `json:"cluster"`
+	SyncPolicyEnabled bool   `json:"syncPolicyEnabled"`
+}
+
+type ArgoTranslationResponse struct {
+	Translated              string `json:"translated,omitempty"`
+	TargetPath              string `json:"targetPath,omitempty"`
+	LegacyArgoAppDeletePath string `json:"legacyArgoAppDeletePath,omitempty"`
+	Error                   string `json:"error,omitempty"`
 }
 
 func main() {
@@ -72,7 +88,7 @@ func main() {
 			return
 		}
 
-		translated, targetPath, err := translator.TranslateValues(
+		translated, targetPath, argoApp, argoPath, legacyArgoPath, err := translator.TranslateValuesWithArgo(
 			req.YAML,
 			req.Cluster,
 			req.EnvOverride,
@@ -86,8 +102,44 @@ func main() {
 		}
 
 		json.NewEncoder(w).Encode(TranslationResponse{
-			Translated: translated,
-			TargetPath: targetPath,
+			Translated:              translated,
+			TargetPath:              targetPath,
+			AssociatedArgoApp:       argoApp,
+			AssociatedArgoAppPath:   argoPath,
+			LegacyArgoAppDeletePath: legacyArgoPath,
+		})
+	})
+
+	// Argo Application translation endpoint
+	http.HandleFunc("/api/translate-argo-app", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			json.NewEncoder(w).Encode(ArgoTranslationResponse{Error: "Method not allowed"})
+			return
+		}
+
+		var req ArgoTranslationRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(ArgoTranslationResponse{Error: "Invalid JSON request payload"})
+			return
+		}
+
+		translated, targetPath, legacyArgoPath, err := translator.TranslateArgoApp(
+			req.YAML,
+			req.Cluster,
+			req.SyncPolicyEnabled,
+		)
+		if err != nil {
+			json.NewEncoder(w).Encode(ArgoTranslationResponse{Error: err.Error()})
+			return
+		}
+
+		json.NewEncoder(w).Encode(ArgoTranslationResponse{
+			Translated:              translated,
+			TargetPath:              targetPath,
+			LegacyArgoAppDeletePath: legacyArgoPath,
 		})
 	})
 

@@ -490,3 +490,276 @@ func unwrapYaml(yamlStr string) string {
 	}
 	return strings.Join(result, "\n")
 }
+
+// Argo CD Application Models
+type ArgoApplicationMetadata struct {
+	Name       string   `yaml:"name"`
+	Namespace  string   `yaml:"namespace"`
+	Finalizers []string `yaml:"finalizers,omitempty"`
+}
+
+type ArgoApplicationHelm struct {
+	ValueFiles []string `yaml:"valueFiles"`
+}
+
+type ArgoApplicationSource struct {
+	RepoURL        string               `yaml:"repoURL"`
+	Path           string               `yaml:"path"`
+	TargetRevision string               `yaml:"targetRevision"`
+	Helm           *ArgoApplicationHelm `yaml:"helm,omitempty"`
+}
+
+type ArgoApplicationDestination struct {
+	Server    string `yaml:"server"`
+	Namespace string `yaml:"namespace"`
+}
+
+type ArgoApplicationSyncAutomated struct {
+	Prune      bool `yaml:"prune"`
+	SelfHeal   bool `yaml:"selfHeal"`
+	AllowEmpty bool `yaml:"allowEmpty"`
+}
+
+type ArgoApplicationSyncPolicy struct {
+	SyncOptions []string                      `yaml:"syncOptions,omitempty"`
+	Automated   *ArgoApplicationSyncAutomated `yaml:"automated,omitempty"`
+}
+
+type ArgoApplicationSpec struct {
+	Project     string                       `yaml:"project"`
+	Sources     []ArgoApplicationSource      `yaml:"sources"`
+	Destination ArgoApplicationDestination    `yaml:"destination"`
+	SyncPolicy  *ArgoApplicationSyncPolicy   `yaml:"syncPolicy,omitempty"`
+}
+
+type ArgoApplication struct {
+	APIVersion string                  `yaml:"apiVersion"`
+	Kind       string                  `yaml:"kind"`
+	Metadata   ArgoApplicationMetadata `yaml:"metadata"`
+	Spec       ArgoApplicationSpec     `yaml:"spec"`
+}
+
+type LegacyApplication struct {
+	Metadata struct {
+		Name      string `yaml:"name"`
+		Namespace string `yaml:"namespace"`
+	} `yaml:"metadata"`
+	Spec struct {
+		Project string `yaml:"project"`
+		Source  struct {
+			RepoURL        string `yaml:"repoURL"`
+			Path           string `yaml:"path"`
+			TargetRevision string `yaml:"targetRevision"`
+			Helm           struct {
+				ValueFiles []string `yaml:"valueFiles"`
+			} `yaml:"helm"`
+		} `yaml:"source"`
+		Destination struct {
+			Server    string `yaml:"server"`
+			Namespace string `yaml:"namespace"`
+		} `yaml:"destination"`
+	} `yaml:"spec"`
+}
+
+func TranslateValuesWithArgo(oldYamlStr string, cluster string, envOverride string, teamOverride string, javaOptionsOverride string, useCommonConfigmap bool) (string, string, string, string, string, error) {
+	translatedValues, targetValuesPath, err := TranslateValues(oldYamlStr, cluster, envOverride, teamOverride, javaOptionsOverride, useCommonConfigmap)
+	if err != nil {
+		return "", "", "", "", "", err
+	}
+
+	var oldData map[string]any
+	if err := yaml.Unmarshal([]byte(oldYamlStr), &oldData); err != nil {
+		return "", "", "", "", "", err
+	}
+
+	nameOverride := "unknown-app"
+	if v, ok := oldData["nameOverride"].(string); ok && v != "" {
+		nameOverride = v
+	} else if v, ok := oldData["fullnameOverride"].(string); ok && v != "" {
+		nameOverride = v
+	}
+	nameOverride = strings.ToLower(strings.TrimSpace(nameOverride))
+
+	environment := "develop"
+	if envOverride != "" {
+		environment = envOverride
+	} else if v, ok := oldData["environment"].(string); ok && v != "" {
+		environment = v
+	}
+
+	team := "middleware"
+	if teamOverride != "" {
+		team = teamOverride
+	} else if v, ok := oldData["team"].(string); ok && v != "" {
+		team = v
+	}
+
+	argoApp, argoPath, err := TranslateArgoAppFromParams(nameOverride, team, environment, cluster, true)
+	if err != nil {
+		return "", "", "", "", "", err
+	}
+
+	legacyArgoPath := fmt.Sprintf("argocd/%s/%s/%s/%s.yaml", cluster, environment, team, nameOverride)
+
+	return translatedValues, targetValuesPath, argoApp, argoPath, legacyArgoPath, nil
+}
+
+func TranslateArgoAppFromParams(appName string, team string, environment string, cluster string, syncPolicyEnabled bool) (string, string, error) {
+	app := ArgoApplication{
+		APIVersion: "argoproj.io/v1alpha1",
+		Kind:       "Application",
+		Metadata: ArgoApplicationMetadata{
+			Name:       fmt.Sprintf("%s-%s", team, appName),
+			Namespace:  "argocd",
+			Finalizers: []string{"resources-finalizer.argocd.argoproj.io"},
+		},
+		Spec: ArgoApplicationSpec{
+			Project: team,
+			Sources: []ArgoApplicationSource{
+				{
+					RepoURL:        "https://BancoGanadero@dev.azure.com/BancoGanadero/BGA-DEVSECOPS/_git/charts",
+					Path:           "./webapp",
+					TargetRevision: "main",
+					Helm: &ArgoApplicationHelm{
+						ValueFiles: []string{
+							fmt.Sprintf("values/%s/%s/%s/%s.yaml", cluster, environment, team, appName),
+						},
+					},
+				},
+			},
+			Destination: ArgoApplicationDestination{
+				Server:    "https://kubernetes.default.svc",
+				Namespace: team,
+			},
+			SyncPolicy: &ArgoApplicationSyncPolicy{
+				SyncOptions: []string{
+					"Validate=false",
+					"CreateNamespace=true",
+					"PrunePropagationPolicy=foreground",
+					"PruneLast=true",
+					"RespectIgnoreDifferences=true",
+				},
+				Automated: &ArgoApplicationSyncAutomated{
+					Prune:      true,
+					SelfHeal:   true,
+					AllowEmpty: false,
+				},
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(2)
+	if err := enc.Encode(app); err != nil {
+		return "", "", fmt.Errorf("error serializing Argo App: %w", err)
+	}
+
+	yamlContent := buf.String()
+	if !syncPolicyEnabled {
+		yamlContent = commentOutSyncPolicy(yamlContent)
+	}
+
+	finalYaml := "---\n" + yamlContent
+	targetPath := fmt.Sprintf("cluster/%s/%s/apps/%s/%s.yaml", cluster, environment, team, appName)
+
+	return finalYaml, targetPath, nil
+}
+
+func TranslateArgoApp(legacyYamlStr string, cluster string, syncPolicyEnabled bool) (string, string, string, error) {
+	strippedYaml := stripArgoComments(legacyYamlStr)
+
+	var legacyApp LegacyApplication
+	if err := yaml.Unmarshal([]byte(strippedYaml), &legacyApp); err != nil {
+		return "", "", "", fmt.Errorf("error parsing legacy Argo Application: %w", err)
+	}
+
+	team := strings.ToLower(strings.TrimSpace(legacyApp.Spec.Destination.Namespace))
+	if team == "" {
+		team = strings.ToLower(strings.TrimSpace(legacyApp.Metadata.Namespace))
+	}
+	if team == "" {
+		team = "middleware"
+	}
+
+	appName := ""
+	pathParts := strings.Split(strings.Trim(legacyApp.Spec.Source.Path, "/"), "/")
+	if len(pathParts) > 0 && pathParts[len(pathParts)-1] != "" {
+		appName = pathParts[len(pathParts)-1]
+	}
+	if appName == "" {
+		appName = legacyApp.Metadata.Name
+		if team != "" && strings.HasPrefix(appName, team+"-") {
+			appName = strings.TrimPrefix(appName, team+"-")
+		}
+	}
+	appName = strings.ToLower(strings.TrimSpace(appName))
+
+	environment := "develop"
+	if len(legacyApp.Spec.Source.Helm.ValueFiles) > 0 {
+		filename := legacyApp.Spec.Source.Helm.ValueFiles[0]
+		cleaned := strings.TrimSuffix(strings.TrimPrefix(filename, "values-"), ".yaml")
+		if cleaned != "" {
+			environment = cleaned
+		}
+	}
+
+	envLower := strings.ToLower(environment)
+	if strings.Contains(envLower, "dev") {
+		environment = "develop"
+	} else if strings.Contains(envLower, "stg") || strings.Contains(envLower, "staging") {
+		environment = "staging"
+	} else if strings.Contains(envLower, "release") || strings.Contains(envLower, "prep") {
+		environment = "release"
+	} else if strings.Contains(envLower, "prod") || strings.Contains(envLower, "master") {
+		environment = "production"
+	}
+
+	argoApp, argoPath, err := TranslateArgoAppFromParams(appName, team, environment, cluster, syncPolicyEnabled)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	legacyArgoPath := fmt.Sprintf("argocd/%s/%s/%s/%s.yaml", cluster, environment, team, appName)
+
+	return argoApp, argoPath, legacyArgoPath, nil
+}
+
+func stripArgoComments(yamlStr string) string {
+	lines := strings.Split(yamlStr, "\n")
+	var result []string
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "#") {
+			stripped := strings.TrimPrefix(trimmed, "#")
+			if strings.HasPrefix(stripped, " ") {
+				stripped = strings.TrimPrefix(stripped, " ")
+			}
+			result = append(result, stripped)
+		} else {
+			result = append(result, line)
+		}
+	}
+	return strings.Join(result, "\n")
+}
+
+func commentOutSyncPolicy(yamlStr string) string {
+	lines := strings.Split(yamlStr, "\n")
+	inSyncPolicy := false
+	for i, line := range lines {
+		if strings.HasPrefix(line, "  syncPolicy:") {
+			inSyncPolicy = true
+		}
+		if inSyncPolicy {
+			trimmed := strings.TrimSpace(line)
+			if trimmed != "" && !strings.HasPrefix(line, "  syncPolicy:") && !strings.HasPrefix(line, "    ") {
+				inSyncPolicy = false
+				continue
+			}
+			if line != "" {
+				lines[i] = "  # " + strings.TrimPrefix(line, "  ")
+			}
+		}
+	}
+	return strings.Join(lines, "\n")
+}
