@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -11,8 +12,25 @@ import (
 )
 
 func main() {
+	// Command-line flags
+	envFilter := flag.String("env", "", "Filter by environment name (e.g., develop, staging, release, production)")
+	teamFilter := flag.String("team", "", "Filter by team/namespace directory name (e.g., bg-crm, middleware)")
+	flag.Parse()
+
 	workspaceDir := "/home/laborant/workspace"
 	srcDir := filepath.Join(workspaceDir, "gitops/infra")
+
+	fmt.Printf("🔮 Starting selective bulk migration...\n")
+	if *envFilter != "" {
+		fmt.Printf("🎯 Filter [Environment]: %s\n", *envFilter)
+	}
+	if *teamFilter != "" {
+		fmt.Printf("🎯 Filter [Team/Namespace]: %s\n", *teamFilter)
+	}
+	fmt.Println()
+
+	migratedCount := 0
+	skippedCount := 0
 
 	err := filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -34,20 +52,23 @@ func main() {
 
 		// Standardize envName to match destination structures
 		envLower := strings.ToLower(envName)
+		var stdEnv string
 		if strings.Contains(envLower, "dev") {
-			envName = "develop"
+			stdEnv = "develop"
 		} else if strings.Contains(envLower, "stg") || strings.Contains(envLower, "staging") {
-			envName = "staging"
+			stdEnv = "staging"
 		} else if strings.Contains(envLower, "release") || strings.Contains(envLower, "prep") {
-			envName = "release"
+			stdEnv = "release"
 		} else if strings.Contains(envLower, "prod") || strings.Contains(envLower, "master") {
-			envName = "production"
+			stdEnv = "production"
+		} else {
+			stdEnv = envLower
 		}
 
-		// Read legacy yaml
-		data, err := ioutil.ReadFile(path)
-		if err != nil {
-			return fmt.Errorf("failed to read %s: %w", path, err)
+		// Filter by environment if specified
+		if *envFilter != "" && !strings.EqualFold(stdEnv, *envFilter) && !strings.EqualFold(envLower, *envFilter) {
+			skippedCount++
+			return nil
 		}
 
 		// Determine team and app from path
@@ -63,11 +84,23 @@ func main() {
 		}
 		team := parts[0]
 
+		// Filter by team if specified
+		if *teamFilter != "" && !strings.EqualFold(team, *teamFilter) {
+			skippedCount++
+			return nil
+		}
+
+		// Read legacy yaml
+		data, err := ioutil.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("failed to read %s: %w", path, err)
+		}
+
 		// Set default cluster based on team/env rules matching the pipeline
 		cluster := "on-premise"
 		if team == "ganamovil" {
 			cluster = "on-prem-ngm"
-		} else if envName != "production" && team == "middleware" {
+		} else if stdEnv != "production" && team == "middleware" {
 			cluster = "on-prem-middl"
 		}
 
@@ -75,7 +108,7 @@ func main() {
 		translatedValues, targetValuesPath, argoApp, targetArgoPath, _, err := translator.TranslateValuesWithArgo(
 			string(data),
 			cluster,
-			envName,
+			stdEnv,
 			team,
 			"",
 			false,
@@ -106,6 +139,7 @@ func main() {
 		}
 
 		fmt.Printf("✅ Migrated: %s\n   -> Values: %s\n   -> ArgoCD: %s\n", path, fullValuesDestPath, fullArgoDestPath)
+		migratedCount++
 		return nil
 	})
 
@@ -113,5 +147,6 @@ func main() {
 		fmt.Printf("❌ Migration failed: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Println("\n🎉 Bulk migration applied successfully to all legacy configurations!")
+
+	fmt.Printf("\n🎉 Migration finished! Migrated: %d files, Skipped/Filtered: %d files.\n", migratedCount, skippedCount)
 }

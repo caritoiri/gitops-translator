@@ -82,6 +82,29 @@ Validate the translation logic, indentations, and sealed secrets unwrappers:
 go test -v ./...
 ```
 
+#### 4. Automatic Bulk Migration (CLI Utility)
+You can run the Go migration script to scan all legacy standalone value overrides in the `gitops` repository, translate them to the modern DRY layout inside the `charts` repository, and automatically output their upgraded ArgoCD App declarations inside the `argocd` repository.
+
+* **Run a complete global migration (all environments & namespaces):**
+  ```bash
+  go run bulk_migrate.go
+  ```
+
+* **Run a selective environment migration (e.g., only `develop` overrides):**
+  ```bash
+  go run bulk_migrate.go -env develop
+  ```
+
+* **Run a selective namespace/team migration (e.g., only `bg-crm` directory):**
+  ```bash
+  go run bulk_migrate.go -team bg-crm
+  ```
+
+* **Run a targeted combination (e.g., `staging` configs for `lealtad` team):**
+  ```bash
+  go run bulk_migrate.go -env staging -team lealtad
+  ```
+
 ---
 
 ### Containerized Deployment (Docker & Compose)
