@@ -79,17 +79,8 @@ func TestTranslateNoCommonConfigmap(t *testing.T) {
 		t.Fatalf("failed to unmarshal output: %v", err)
 	}
 
-	extEnv, ok := data["extEnvVarsFrom"].(map[string]any)
-	if !ok {
-		t.Fatalf("extEnvVarsFrom missing or invalid")
-	}
-
-	if extEnv["enabled"] != false {
-		t.Errorf("expected enabled to be false, got %v", extEnv["enabled"])
-	}
-
-	if _, exists := extEnv["envFrom"]; exists {
-		t.Errorf("envFrom should not be present")
+	if _, exists := data["extEnvVarsFrom"]; exists {
+		t.Errorf("extEnvVarsFrom should be omitted when disabled")
 	}
 }
 
@@ -230,4 +221,202 @@ func TestTranslateArgoAppCommentedOutSyncPolicy(t *testing.T) {
 		t.Errorf("expected translated app to have commented out syncPolicy, got:\n%s", output)
 	}
 }
+
+func TestTranslateRobustIngressAndAutoscaling(t *testing.T) {
+	input := `nameOverride: signbox-conector
+environment: develop
+team: pago-servicios
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 85
+storage:
+  enabled: true
+  persistentVolumeClaim:
+    storageClassName: standard
+    resources:
+      requests:
+        storage: 10Gi
+ingresses:
+  - name: oauthintrospection
+    enabled: true
+    annotations:
+      kubernetes.io/ingress.class: kong
+      konghq.com/strip-path: "true"
+      konghq.com/plugins: signbox-conector-oauthintrospection-plugin
+    hosts:
+      - paths:
+          - path: /bgdev/int/signboxconector/
+            pathType: Prefix
+        host: api.bg.com.bo
+kong:
+  plugins:
+  - name: signbox-conector-basic-auth-plugin
+    plugin: basicauth
+    config:
+      header_value: http://auth.service.local
+`
+	output, _, err := TranslateValues(input, "on-premise", "", "", "", false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var data map[string]any
+	if err := yaml.Unmarshal([]byte(output), &data); err != nil {
+		t.Fatalf("failed to unmarshal output: %v", err)
+	}
+
+	// 1. Verify autoscaling mapping
+	auto, ok := data["autoscaling"].(map[string]any)
+	if !ok || auto["enabled"] != true || auto["minReplicas"] != 2 || auto["maxReplicas"] != 10 {
+		t.Errorf("invalid autoscaling: %v", auto)
+	}
+
+	// 2. Verify storage mapping
+	store, ok := data["storage"].(map[string]any)
+	if !ok || store["enabled"] != true {
+		t.Errorf("invalid storage: %v", store)
+	}
+	pvc, ok := store["persistentVolumeClaim"].(map[string]any)
+	if !ok || pvc["storageClassName"] != "standard" {
+		t.Errorf("invalid storage pvc: %v", pvc)
+	}
+
+	// 3. Verify networking/ingress mapping
+	net, ok := data["networking"].(map[string]any)
+	if !ok {
+		t.Fatalf("networking missing")
+	}
+	ingress, ok := net["ingress"].([]any)
+	if !ok || len(ingress) == 0 {
+		t.Fatalf("ingress missing or empty")
+	}
+	ingEntry := ingress[0].(map[string]any)
+	if ingEntry["name"] != "oauthintrospection" || ingEntry["ingressClassName"] != "kong" {
+		t.Errorf("invalid ingress entry name/class: %v", ingEntry)
+	}
+	hosts, ok := ingEntry["hosts"].([]any)
+	if !ok || len(hosts) == 0 {
+		t.Fatalf("hosts missing or empty")
+	}
+	hEntry := hosts[0].(map[string]any)
+	if hEntry["host"] != "api.bg.com.bo" {
+		t.Errorf("invalid host: %v", hEntry["host"])
+	}
+
+	// 4. Verify networking/kong mapping
+	kongVal, ok := net["kong"].(map[string]any)
+	if !ok {
+		t.Fatalf("kong missing")
+	}
+	plugins, ok := kongVal["plugins"].([]any)
+	if !ok || len(plugins) == 0 {
+		t.Fatalf("kong plugins missing or empty")
+	}
+	pluginEntry := plugins[0].(map[string]any)
+	if pluginEntry["name"] != "signbox-conector-basic-auth-plugin" || pluginEntry["plugin"] != "basicauth" {
+		t.Errorf("invalid plugin entry: %v", pluginEntry)
+	}
+}
+
+func TestTranslateCrmApi(t *testing.T) {
+	input := `nameOverride: api-rest-integracion-crm
+environment: develop
+team: bg-crm
+replicaCount: 1
+image:
+  pullPolicy: IfNotPresent
+  repository: bancoganadero/api-rest-integracion-crm
+  tag: 35379.develop
+imagePullSecrets:
+  - name: dockerhublogin
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 50m
+    memory: 100Mi
+configmap: 
+  SALESFORCE_WEB_TO_LEAD_URL: https://test.salesforce.com/servlet/servlet.WebToLead?encoding=UTF-8
+  retURL: http://www.bg.com.bo
+  orgId: 00DU9000000rcVN
+  ORIGINS_LIST: Farmacorp22,Portal BGA
+kong:
+  plugins:
+    - name: "crm-basic-auth-plugin"
+      plugin: "basicauth"
+      config:
+        header_value: http://basic-auth-conector.pago-servicios.svc.cluster.local:8080/v1/auth
+    - name: "crm-oauthintrospection-plugin"
+      plugin: "oauthintrospection"
+      config:
+        client_id: bga-token-validate
+`
+	output, _, err := TranslateValues(input, "on-premise", "", "", "", false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var data map[string]any
+	if err := yaml.Unmarshal([]byte(output), &data); err != nil {
+		t.Fatalf("failed to unmarshal output: %v", err)
+	}
+
+	// 1. Verify top level omissions
+	if _, exists := data["extEnvVarsFrom"]; exists {
+		t.Errorf("extEnvVarsFrom should be omitted")
+	}
+	if _, exists := data["autoscaling"]; exists {
+		t.Errorf("autoscaling should be omitted")
+	}
+	if _, exists := data["storage"]; exists {
+		t.Errorf("storage should be omitted")
+	}
+
+	// 2. Verify deploy mappings and omissions
+	deploy, ok := data["deploy"].(map[string]any)
+	if !ok {
+		t.Fatalf("deploy missing")
+	}
+	if _, exists := deploy["volumeMounts"]; exists {
+		t.Errorf("volumeMounts should be omitted")
+	}
+	if _, exists := deploy["volumes"]; exists {
+		t.Errorf("volumes should be omitted")
+	}
+	if _, exists := deploy["revisionHistoryLimit"]; exists {
+		t.Errorf("revisionHistoryLimit should be omitted")
+	}
+	sc, ok := deploy["securityContext"].(map[string]any)
+	if !ok || sc["runAsNonRoot"] != true || sc["runAsUser"] != 1000 {
+		t.Errorf("invalid securityContext: %v", sc)
+	}
+
+	// 3. Verify networking/kong mapping
+	net, ok := data["networking"].(map[string]any)
+	if !ok {
+		t.Fatalf("networking missing")
+	}
+	if _, exists := net["ingress"]; exists {
+		t.Errorf("ingress should be omitted since legacy ingress was not processed")
+	}
+	kongVal, ok := net["kong"].(map[string]any)
+	if !ok {
+		t.Fatalf("kong missing")
+	}
+	if _, exists := kongVal["enabled"]; exists {
+		t.Errorf("enabled key should be omitted under kong")
+	}
+	plugins, ok := kongVal["plugins"].([]any)
+	if !ok || len(plugins) != 2 {
+		t.Fatalf("plugins count should be 2")
+	}
+}
+
+
 

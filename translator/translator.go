@@ -27,11 +27,55 @@ type ExtEnvVarsFrom struct {
 	SealedSecrets *SealedSecrets  `yaml:"sealedSecrets,omitempty"`
 }
 
+type ScalePolicy struct {
+	Type          string `yaml:"type"`
+	Value         int    `yaml:"value"`
+	PeriodSeconds int    `yaml:"periodSeconds"`
+}
+
+type ScaleDown struct {
+	Policies     []ScalePolicy `yaml:"policies,omitempty"`
+	SelectPolicy string        `yaml:"selectPolicy,omitempty"`
+}
+
+type ScaleUp struct {
+	Policies                   []ScalePolicy `yaml:"policies,omitempty"`
+	SelectPolicy               string        `yaml:"selectPolicy,omitempty"`
+	StabilizationWindowSeconds *int          `yaml:"stabilizationWindowSeconds,omitempty"`
+}
+
+type Behavior struct {
+	ScaleDown ScaleDown `yaml:"scaleDown,omitempty"`
+	ScaleUp   ScaleUp   `yaml:"scaleUp,omitempty"`
+}
+
+type Autoscaling struct {
+	Enabled                           bool      `yaml:"enabled"`
+	MinReplicas                       *int      `yaml:"minReplicas,omitempty"`
+	MaxReplicas                       *int      `yaml:"maxReplicas,omitempty"`
+	TargetCPUUtilizationPercentage    *int      `yaml:"targetCPUUtilizationPercentage,omitempty"`
+	TargetMemoryUtilizationPercentage *int      `yaml:"targetMemoryUtilizationPercentage,omitempty"`
+	Behavior                          *Behavior `yaml:"behavior,omitempty"`
+}
+
+type Storage struct {
+	Enabled               bool           `yaml:"enabled"`
+	PersistentVolume      map[string]any `yaml:"persistentVolume,omitempty"`
+	PersistentVolumeClaim map[string]any `yaml:"persistentVolumeClaim,omitempty"`
+}
+
 type PortEntry struct {
 	Name          string `yaml:"name"`
 	ContainerPort int    `yaml:"containerPort"`
 	ServicePort   int    `yaml:"servicePort"`
 	Protocol      string `yaml:"protocol"`
+}
+
+type Image struct {
+	Repository      string      `yaml:"repository"`
+	Tag             string      `yaml:"tag"`
+	ImagePullPolicy string      `yaml:"imagePullPolicy"`
+	Ports           []PortEntry `yaml:"ports"`
 }
 
 type SecretKeyRef struct {
@@ -49,13 +93,13 @@ type ExtEnvVarEntry struct {
 }
 
 type ResourceLimits struct {
-	CPU    string `yaml:"cpu"`
-	Memory string `yaml:"memory"`
+	CPU    string `yaml:"cpu,omitempty"`
+	Memory string `yaml:"memory,omitempty"`
 }
 
 type ResourceRequests struct {
-	CPU    string `yaml:"cpu"`
-	Memory string `yaml:"memory"`
+	CPU    string `yaml:"cpu,omitempty"`
+	Memory string `yaml:"memory,omitempty"`
 }
 
 type Resources struct {
@@ -63,19 +107,35 @@ type Resources struct {
 	Limits   ResourceLimits   `yaml:"limits"`
 }
 
-type Deploy struct {
-	ReplicaCount     int              `yaml:"replicaCount"`
-	ImagePullSecrets []map[string]string `yaml:"imagePullSecrets"`
-	Image            Image            `yaml:"image"`
-	EnvVars          map[string]any   `yaml:"envVars"`
-	ExtEnvVars       []ExtEnvVarEntry `yaml:"extEnvVars,omitempty"`
-	Resources        Resources        `yaml:"resources"`
+type VolumeMount struct {
+	Name      string `yaml:"name"`
+	MountPath string `yaml:"mountPath"`
 }
 
-type Image struct {
-	Repository string      `yaml:"repository"`
-	Tag        string      `yaml:"tag"`
-	Ports      []PortEntry `yaml:"ports"`
+type HostPath struct {
+	Path string `yaml:"path"`
+	Type string `yaml:"type"`
+}
+
+type Volume struct {
+	Name      string         `yaml:"name"`
+	HostPath  *HostPath      `yaml:"hostPath,omitempty"`
+	ConfigMap map[string]any `yaml:"configMap,omitempty"`
+	Secret    map[string]any `yaml:"secret,omitempty"`
+	NFS       map[string]any `yaml:"nfs,omitempty"`
+}
+
+type Deploy struct {
+	ReplicaCount         int                 `yaml:"replicaCount"`
+	ImagePullSecrets     []map[string]string `yaml:"imagePullSecrets,omitempty"`
+	Image                Image               `yaml:"image"`
+	EnvVars              map[string]any      `yaml:"envVars,omitempty"`
+	ExtEnvVars           []ExtEnvVarEntry    `yaml:"extEnvVars,omitempty"`
+	SecurityContext      map[string]any      `yaml:"securityContext,omitempty"`
+	RevisionHistoryLimit *int                `yaml:"revisionHistoryLimit,omitempty"`
+	Resources            Resources           `yaml:"resources"`
+	VolumeMounts         []VolumeMount       `yaml:"volumeMounts,omitempty"`
+	Volumes              []Volume            `yaml:"volumes,omitempty"`
 }
 
 type IngressPath struct {
@@ -89,25 +149,40 @@ type IngressHost struct {
 }
 
 type IngressEntry struct {
-	Name             string        `yaml:"name"`
-	Enabled          bool          `yaml:"enabled"`
-	IngressClassName string        `yaml:"ingressClassName"`
-	Hosts            []IngressHost `yaml:"hosts"`
+	Name             string            `yaml:"name"`
+	Enabled          bool              `yaml:"enabled"`
+	IngressClassName string            `yaml:"ingressClassName,omitempty"`
+	Annotations      map[string]string `yaml:"annotations,omitempty"`
+	Hosts            []IngressHost     `yaml:"hosts"`
+}
+
+type KongPlugin struct {
+	Name   string         `yaml:"name"`
+	Plugin string         `yaml:"plugin"`
+	Config map[string]any `yaml:"config"`
+}
+
+type Kong struct {
+	Enabled *bool        `yaml:"enabled,omitempty"`
+	Plugins []KongPlugin `yaml:"plugins,omitempty"`
 }
 
 type Networking struct {
-	Ingress []IngressEntry `yaml:"ingress"`
+	Ingress []IngressEntry `yaml:"ingress,omitempty"`
+	Kong    *Kong          `yaml:"kong,omitempty"`
 }
 
 type WebappValues struct {
-	NameOverride   string         `yaml:"nameOverride"`
-	Cluster        string         `yaml:"cluster"`
-	Environment    string         `yaml:"environment"`
-	Team           string         `yaml:"team"`
-	Project        string         `yaml:"project"`
-	ExtEnvVarsFrom ExtEnvVarsFrom `yaml:"extEnvVarsFrom"`
-	Deploy         Deploy         `yaml:"deploy"`
-	Networking     Networking     `yaml:"networking"`
+	NameOverride   string          `yaml:"nameOverride"`
+	Cluster        string          `yaml:"cluster"`
+	Environment    string          `yaml:"environment"`
+	Team           string          `yaml:"team"`
+	Project        string          `yaml:"project"`
+	ExtEnvVarsFrom *ExtEnvVarsFrom `yaml:"extEnvVarsFrom,omitempty"`
+	Autoscaling    *Autoscaling    `yaml:"autoscaling,omitempty"`
+	Storage        *Storage        `yaml:"storage,omitempty"`
+	Deploy         Deploy          `yaml:"deploy"`
+	Networking     Networking      `yaml:"networking"`
 }
 
 var defaultExcludeKeys = map[string]bool{
@@ -165,53 +240,29 @@ func TranslateValues(oldYamlStr string, cluster string, envOverride string, team
 	}
 	project := team
 
-	// 2. Build Ingress Host and Paths
-	ingressMap, _ := oldData["ingress"].(map[string]any)
-	ingressEnabled := true
-	if ie, ok := ingressMap["enabled"].(bool); ok {
-		ingressEnabled = ie
-	}
-
-	var ingressPaths []string
-	var oldHost string
-
-	if hostsList, ok := ingressMap["hosts"].([]any); ok && len(hostsList) > 0 {
-		if firstHost, ok := hostsList[0].(map[string]any); ok {
-			if h, ok := firstHost["host"].(string); ok {
-				oldHost = h
-			}
-			if pathsList, ok := firstHost["paths"].([]any); ok {
-				for _, p := range pathsList {
-					if pm, ok := p.(map[string]any); ok {
-						if pathStr, ok := pm["path"].(string); ok {
-							ingressPaths = append(ingressPaths, pathStr)
-						}
-					} else if ps, ok := p.(string); ok {
-						ingressPaths = append(ingressPaths, ps)
-					}
+	// 2. Autoscaling and Storage robust structures (nil if disabled to inherit from base values.yaml)
+	var autoscaling *Autoscaling
+	if autoMap, ok := oldData["autoscaling"].(map[string]any); ok {
+		var a Autoscaling
+		if autoBytes, err := yaml.Marshal(autoMap); err == nil {
+			if err := yaml.Unmarshal(autoBytes, &a); err == nil {
+				if a.Enabled {
+					autoscaling = &a
 				}
 			}
 		}
 	}
 
-	if oldHost == "" || strings.Contains(oldHost, "<name>") {
-		envShort := "dev"
-		if strings.Contains(environment, "stg") || strings.Contains(environment, "staging") {
-			envShort = "stg"
-		} else if strings.Contains(environment, "release") || strings.Contains(environment, "prep") {
-			envShort = "prep"
-		} else if strings.Contains(environment, "prod") || strings.Contains(environment, "master") {
-			envShort = "prod"
+	var storage *Storage
+	if storeMap, ok := oldData["storage"].(map[string]any); ok {
+		var s Storage
+		if storeBytes, err := yaml.Marshal(storeMap); err == nil {
+			if err := yaml.Unmarshal(storeBytes, &s); err == nil {
+				if s.Enabled {
+					storage = &s
+				}
+			}
 		}
-		if envShort == "prod" {
-			oldHost = "api.bg.com.bo"
-		} else {
-			oldHost = fmt.Sprintf("api.%s.bg.com.bo", envShort)
-		}
-	}
-
-	if len(ingressPaths) == 0 {
-		ingressPaths = []string{"/" + nameOverride + "/"}
 	}
 
 	// 3. Handle Environment Variables (Configmap)
@@ -249,12 +300,12 @@ func TranslateValues(oldYamlStr string, cluster string, envOverride string, team
 		}
 	}
 
-	// 5. extEnvVarsFrom
-	extEnvVarsFrom := ExtEnvVarsFrom{
-		Enabled: false,
-	}
+	// 5. extEnvVarsFrom (nil if disabled to inherit from base values.yaml)
+	var extEnvVarsFrom *ExtEnvVarsFrom
 	if useCommonConfigmap || len(sealedSecrets) > 0 {
-		extEnvVarsFrom.Enabled = true
+		extEnvVarsFrom = &ExtEnvVarsFrom{
+			Enabled: true,
+		}
 		if useCommonConfigmap {
 			extEnvVarsFrom.EnvFrom = []EnvFromEntry{
 				{
@@ -299,6 +350,13 @@ func TranslateValues(oldYamlStr string, cluster string, envOverride string, team
 		imageTag = fmt.Sprintf("%g", itFloat)
 	}
 
+	imagePullPolicy := "IfNotPresent"
+	if ipp, ok := imageMap["imagePullPolicy"].(string); ok && ipp != "" {
+		imagePullPolicy = ipp
+	} else if ipp, ok := imageMap["pullPolicy"].(string); ok && ipp != "" {
+		imagePullPolicy = ipp
+	}
+
 	serviceMap, _ := oldData["service"].(map[string]any)
 	containerPort := 8080
 	if cp, ok := serviceMap["targetPort"].(int); ok {
@@ -329,8 +387,9 @@ func TranslateValues(oldYamlStr string, cluster string, envOverride string, team
 	}
 
 	deployImage := Image{
-		Repository: imageRepo,
-		Tag:        imageTag,
+		Repository:      imageRepo,
+		Tag:             imageTag,
+		ImagePullPolicy: imagePullPolicy,
 		Ports: []PortEntry{
 			{
 				Name:          portName,
@@ -361,32 +420,131 @@ func TranslateValues(oldYamlStr string, cluster string, envOverride string, team
 		}
 	}
 
+	var revisionHistoryLimit *int
+	if rhl, ok := oldData["revisionHistoryLimit"].(int); ok {
+		if rhl != 5 {
+			revisionHistoryLimit = &rhl
+		}
+	} else if rhlFloat, ok := oldData["revisionHistoryLimit"].(float64); ok {
+		rhlInt := int(rhlFloat)
+		if rhlInt != 5 {
+			revisionHistoryLimit = &rhlInt
+		}
+	}
+
 	resourcesMap, _ := oldData["resources"].(map[string]any)
 	requestsMap, _ := resourcesMap["requests"].(map[string]any)
 	limitsMap, _ := resourcesMap["limits"].(map[string]any)
 
-	cpuReq := "250m"
+	cpuReq := ""
 	if cr, ok := requestsMap["cpu"].(string); ok && cr != "" {
 		cpuReq = cr
 	}
-	memReq := "512Mi"
+	memReq := ""
 	if mr, ok := requestsMap["memory"].(string); ok && mr != "" {
 		memReq = mr
 	}
-	cpuLim := "500m"
+	cpuLim := ""
 	if cl, ok := limitsMap["cpu"].(string); ok && cl != "" {
 		cpuLim = cl
 	}
-	memLim := "1Gi"
+	memLim := ""
 	if ml, ok := limitsMap["memory"].(string); ok && ml != "" {
 		memLim = ml
 	}
 
+	// Default fallbacks if legacy resources are missing
+	if cpuReq == "" {
+		cpuReq = "250m"
+	}
+	if memReq == "" {
+		memReq = "512Mi"
+	}
+	if cpuLim == "" {
+		cpuLim = "500m"
+	}
+	if memLim == "" {
+		memLim = "1Gi"
+	}
+
+	var volumeMounts []VolumeMount
+	if vmList, ok := oldData["volumeMounts"].([]any); ok && len(vmList) > 0 {
+		for _, vm := range vmList {
+			if vmMap, ok := vm.(map[string]any); ok {
+				vmName, _ := vmMap["name"].(string)
+				mountPath, _ := vmMap["mountPath"].(string)
+				if vmName != "" && mountPath != "" {
+					volumeMounts = append(volumeMounts, VolumeMount{
+						Name:      vmName,
+						MountPath: mountPath,
+					})
+				}
+			}
+		}
+	}
+
+	var volumes []Volume
+	if vList, ok := oldData["volumes"].([]any); ok && len(vList) > 0 {
+		for _, v := range vList {
+			if vMap, ok := v.(map[string]any); ok {
+				var vol Volume
+				if name, ok := vMap["name"].(string); ok {
+					vol.Name = name
+				}
+				if hpMap, ok := vMap["hostPath"].(map[string]any); ok {
+					path, _ := hpMap["path"].(string)
+					hpType, _ := hpMap["type"].(string)
+					vol.HostPath = &HostPath{Path: path, Type: hpType}
+				}
+				if cmMap, ok := vMap["configMap"].(map[string]any); ok {
+					vol.ConfigMap = cmMap
+				}
+				if secMap, ok := vMap["secret"].(map[string]any); ok {
+					vol.Secret = secMap
+				}
+				if nfsMap, ok := vMap["nfs"].(map[string]any); ok {
+					vol.NFS = nfsMap
+				}
+				if vol.Name != "" {
+					volumes = append(volumes, vol)
+				}
+			}
+		}
+	}
+
+	// Omit default timezone setup as they are already defined in values.yaml
+	isDefaultVolumeMounts := func(vm []VolumeMount) bool {
+		if len(vm) != 1 {
+			return false
+		}
+		return vm[0].Name == "tz-config" && vm[0].MountPath == "/etc/localtime"
+	}
+	isDefaultVolumes := func(v []Volume) bool {
+		if len(v) != 1 {
+			return false
+		}
+		return v[0].Name == "tz-config" && v[0].HostPath != nil && v[0].HostPath.Path == "/usr/share/zoneinfo/America/La_Paz"
+	}
+
+	if isDefaultVolumeMounts(volumeMounts) || len(volumeMounts) == 0 {
+		volumeMounts = nil
+	}
+	if isDefaultVolumes(volumes) || len(volumes) == 0 {
+		volumes = nil
+	}
+
+	var securityContext map[string]any
+	if sc, ok := oldData["securityContext"].(map[string]any); ok {
+		securityContext = sc
+	}
+
 	deploy := Deploy{
-		ReplicaCount:     replicaCount,
-		ImagePullSecrets: imagePullSecrets,
-		Image:            deployImage,
-		EnvVars:          envVars,
+		ImagePullSecrets:     imagePullSecrets,
+		ReplicaCount:         replicaCount,
+		Image:                deployImage,
+		EnvVars:              envVars,
+		SecurityContext:      securityContext,
+		RevisionHistoryLimit: revisionHistoryLimit,
 		Resources: Resources{
 			Requests: ResourceRequests{
 				CPU:    cpuReq,
@@ -397,6 +555,8 @@ func TranslateValues(oldYamlStr string, cluster string, envOverride string, team
 				Memory: memLim,
 			},
 		},
+		VolumeMounts: volumeMounts,
+		Volumes:      volumes,
 	}
 
 	if hasOracle && len(sealedSecrets) == 0 {
@@ -410,33 +570,207 @@ func TranslateValues(oldYamlStr string, cluster string, envOverride string, team
 	}
 
 	// 7. Networking setup
-	var ingressHosts []IngressHost
-	var ingressPathsObj []IngressPath
-	for _, p := range ingressPaths {
-		ingressPathsObj = append(ingressPathsObj, IngressPath{
-			Path:     p,
-			PathType: "ImplementationSpecific",
-		})
+	var ingressEntries []IngressEntry
+	hasLegacyIngress := false
+	if _, ok := oldData["ingresses"]; ok {
+		hasLegacyIngress = true
+	} else if _, ok := oldData["ingress"]; ok {
+		hasLegacyIngress = true
 	}
 
-	ingressHosts = append(ingressHosts, IngressHost{
-		Host:  oldHost,
-		Paths: ingressPathsObj,
-	})
+	if hasLegacyIngress {
+		parseHosts := func(hostsList []any) []IngressHost {
+			var hosts []IngressHost
+			for _, hItem := range hostsList {
+				hMap, ok := hItem.(map[string]any)
+				if !ok {
+					continue
+				}
+				hostStr, _ := hMap["host"].(string)
 
-	ingressHosts = append(ingressHosts, IngressHost{
-		Paths: ingressPathsObj,
-	})
+				if hostStr == "" || strings.Contains(hostStr, "<name>") {
+					envShort := "dev"
+					if strings.Contains(environment, "stg") || strings.Contains(environment, "staging") {
+						envShort = "stg"
+					} else if strings.Contains(environment, "release") || strings.Contains(environment, "prep") {
+						envShort = "prep"
+					} else if strings.Contains(environment, "prod") || strings.Contains(environment, "master") {
+						envShort = "prod"
+					}
+					if envShort == "prod" {
+						hostStr = "api.bg.com.bo"
+					} else {
+						hostStr = fmt.Sprintf("api.%s.bg.com.bo", envShort)
+					}
+				}
+
+				var paths []IngressPath
+				if pathsList, ok := hMap["paths"].([]any); ok {
+					for _, pItem := range pathsList {
+						if pMap, ok := pItem.(map[string]any); ok {
+							pStr, _ := pMap["path"].(string)
+							pType, _ := pMap["pathType"].(string)
+							if pType == "" {
+								pType = "ImplementationSpecific"
+							}
+							if pStr != "" {
+								paths = append(paths, IngressPath{Path: pStr, PathType: pType})
+							}
+						} else if pStr, ok := pItem.(string); ok && pStr != "" {
+							paths = append(paths, IngressPath{Path: pStr, PathType: "ImplementationSpecific"})
+						}
+					}
+				}
+				if len(paths) == 0 {
+					paths = []IngressPath{
+						{Path: "/" + nameOverride + "/", PathType: "ImplementationSpecific"},
+					}
+				}
+				hosts = append(hosts, IngressHost{
+					Host:  hostStr,
+					Paths: paths,
+				})
+			}
+			return hosts
+		}
+
+		if ingressesList, ok := oldData["ingresses"].([]any); ok && len(ingressesList) > 0 {
+			for _, ingItem := range ingressesList {
+				ingMap, ok := ingItem.(map[string]any)
+				if !ok {
+					continue
+				}
+				name, _ := ingMap["name"].(string)
+				if name == "" {
+					name = "default"
+				}
+				enabled := true
+				if e, ok := ingMap["enabled"].(bool); ok {
+					enabled = e
+				}
+				var annotations map[string]string
+				if ann, ok := ingMap["annotations"].(map[string]any); ok {
+					annotations = make(map[string]string)
+					for k, v := range ann {
+						if vStr, ok := v.(string); ok {
+							annotations[k] = vStr
+						}
+					}
+				}
+				ingressClassName, _ := ingMap["ingressClassName"].(string)
+				if ingressClassName == "" {
+					if annotations != nil {
+						if ic, ok := annotations["kubernetes.io/ingress.class"]; ok {
+							ingressClassName = ic
+						}
+					}
+				}
+				if ingressClassName == "" {
+					ingressClassName = "kong"
+				}
+
+				var hosts []IngressHost
+				if hostsList, ok := ingMap["hosts"].([]any); ok {
+					hosts = parseHosts(hostsList)
+				}
+
+				ingressEntries = append(ingressEntries, IngressEntry{
+					Name:             name,
+					Enabled:          enabled,
+					IngressClassName: ingressClassName,
+					Annotations:      annotations,
+					Hosts:            hosts,
+				})
+			}
+		} else if ingressMap, ok := oldData["ingress"].(map[string]any); ok {
+			enabled := true
+			if e, ok := ingressMap["enabled"].(bool); ok {
+				enabled = e
+			}
+			var annotations map[string]string
+			if ann, ok := ingressMap["annotations"].(map[string]any); ok {
+				annotations = make(map[string]string)
+				for k, v := range ann {
+					if vStr, ok := v.(string); ok {
+						annotations[k] = vStr
+					}
+				}
+			}
+			ingressClassName, _ := ingressMap["ingressClassName"].(string)
+			if ingressClassName == "" {
+				if annotations != nil {
+					if ic, ok := annotations["kubernetes.io/ingress.class"]; ok {
+						ingressClassName = ic
+					}
+				}
+			}
+			if ingressClassName == "" {
+				ingressClassName = "kong"
+			}
+
+			var hosts []IngressHost
+			if hostsList, ok := ingressMap["hosts"].([]any); ok {
+				hosts = parseHosts(hostsList)
+			} else {
+				envShort := "dev"
+				if strings.Contains(environment, "stg") || strings.Contains(environment, "staging") {
+					envShort = "stg"
+				} else if strings.Contains(environment, "release") || strings.Contains(environment, "prep") {
+					envShort = "prep"
+				} else if strings.Contains(environment, "prod") || strings.Contains(environment, "master") {
+					envShort = "prod"
+				}
+				fallbackHost := ""
+				if envShort == "prod" {
+					fallbackHost = "api.bg.com.bo"
+				} else {
+					fallbackHost = fmt.Sprintf("api.%s.bg.com.bo", envShort)
+				}
+				hosts = []IngressHost{
+					{
+						Host: fallbackHost,
+						Paths: []IngressPath{
+							{Path: "/" + nameOverride + "/", PathType: "ImplementationSpecific"},
+						},
+					},
+				}
+			}
+
+			ingressEntries = append(ingressEntries, IngressEntry{
+				Name:             "default",
+				Enabled:          enabled,
+				IngressClassName: ingressClassName,
+				Annotations:      annotations,
+				Hosts:            hosts,
+			})
+		}
+	}
+
+	var kong *Kong
+	if kongMap, ok := oldData["kong"].(map[string]any); ok {
+		k := Kong{}
+		if pluginsList, ok := kongMap["plugins"].([]any); ok && len(pluginsList) > 0 {
+			for _, pItem := range pluginsList {
+				if pMap, ok := pItem.(map[string]any); ok {
+					var plugin KongPlugin
+					plugin.Name, _ = pMap["name"].(string)
+					plugin.Plugin, _ = pMap["plugin"].(string)
+					if cfg, ok := pMap["config"].(map[string]any); ok {
+						plugin.Config = cfg
+					}
+					k.Plugins = append(k.Plugins, plugin)
+				}
+			}
+		}
+		if e, ok := kongMap["enabled"].(bool); ok {
+			k.Enabled = &e
+		}
+		kong = &k
+	}
 
 	networking := Networking{
-		Ingress: []IngressEntry{
-			{
-				Name:             "default",
-				Enabled:          ingressEnabled,
-				IngressClassName: "kong",
-				Hosts:            ingressHosts,
-			},
-		},
+		Ingress: ingressEntries,
+		Kong:    kong,
 	}
 
 	webappValues := WebappValues{
@@ -446,13 +780,15 @@ func TranslateValues(oldYamlStr string, cluster string, envOverride string, team
 		Team:           team,
 		Project:        project,
 		ExtEnvVarsFrom: extEnvVarsFrom,
+		Autoscaling:    autoscaling,
+		Storage:        storage,
 		Deploy:         deploy,
 		Networking:     networking,
 	}
 
 	var buf bytes.Buffer
 	enc := yaml.NewEncoder(&buf)
-	enc.SetIndent(2) // Set indent to standard 2-spaces!
+	enc.SetIndent(2)
 	if err := enc.Encode(webappValues); err != nil {
 		return "", "", fmt.Errorf("error serializing translated YAML: %w", err)
 	}
