@@ -47,6 +47,9 @@ type MigrationTarget struct {
 func main() {
 	// Lista de servicios a migrar
 	targets := []MigrationTarget{
+		// ==================================================================================
+		// EJEMPLOS DE CASOS DE USO (Descomentar y adaptar según sea necesario):
+		// ==================================================================================
 
 		// CASO DE USO 1: Migrar app individual SIN sobreescribir (Safe/Skip mode)
 		// -> Si el archivo destino existe, se omite y no se realizan commits.
@@ -72,6 +75,9 @@ func main() {
 		// -> Especifica valores manuales de CPU y Memoria Request/Limit.
 		// {"trxz-conector", "integration", "develop", false, "", "nodejs", true, true, "150m", "256Mi", "300m", "512Mi"},
 
+		// ==================================================================================
+		// EJECUCIÓN ACTIVA:
+		// ==================================================================================
 		{"trxz-conector", "integration", "release", false, "", "java", true, true, "", "", "", ""},
 	}
 
@@ -271,9 +277,15 @@ func main() {
 		if hasChanges {
 			commitMessage := fmt.Sprintf("feat: migrated %s %s", svc.Name, svc.Env)
 			fmt.Println("  [GIT] Enviando cambios detectados a los repositorios...")
-			runGitCommand("../gitops", commitMessage)
-			runGitCommand("../argocd", commitMessage)
-			runGitCommand("../charts", commitMessage)
+			if err := runGitCommand("../gitops", commitMessage); err != nil {
+				fmt.Printf("  [ERROR GIT] %v\n", err)
+			}
+			if err := runGitCommand("../argocd", commitMessage); err != nil {
+				fmt.Printf("  [ERROR GIT] %v\n", err)
+			}
+			if err := runGitCommand("../charts", commitMessage); err != nil {
+				fmt.Printf("  [ERROR GIT] %v\n", err)
+			}
 		} else {
 			fmt.Println("  [GIT] Sin cambios pendientes. No se requiere ejecución de commits.")
 		}
@@ -332,15 +344,50 @@ func stripComments(yamlStr string) string {
 	return strings.Join(result, "\n")
 }
 
-func runGitCommand(dir string, message string) {
-	_ = execCmd(dir, "git", "pull")
-	_ = execCmd(dir, "git", "add", ".")
-	_ = execCmd(dir, "git", "commit", "-m", message)
-	_ = execCmd(dir, "git", "push")
+func hasChangesToCommit(dir string) bool {
+	cmd := exec.Command("git", "status", "--porcelain")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+	return len(strings.TrimSpace(string(out))) > 0
+}
+
+func runGitCommand(dir string, message string) error {
+	fmt.Printf("  [GIT] [%s] Sincronizando repositorio: git pull origin main...\n", dir)
+	if err := execCmd(dir, "git", "pull", "origin", "main"); err != nil {
+		return fmt.Errorf("git pull failed: %w", err)
+	}
+
+	fmt.Printf("  [GIT] [%s] Agregando cambios: git add . ...\n", dir)
+	if err := execCmd(dir, "git", "add", "."); err != nil {
+		return fmt.Errorf("git add failed: %w", err)
+	}
+
+	if !hasChangesToCommit(dir) {
+		fmt.Printf("  [GIT] [%s] Sin cambios detectados para confirmar.\n", dir)
+		return nil
+	}
+
+	fmt.Printf("  [GIT] [%s] Confirmando cambios: git commit -m \"%s\" ...\n", dir, message)
+	if err := execCmd(dir, "git", "commit", "-m", message); err != nil {
+		return fmt.Errorf("git commit failed: %w", err)
+	}
+
+	fmt.Printf("  [GIT] [%s] Enviando al servidor: git push origin main ...\n", dir)
+	if err := execCmd(dir, "git", "push", "origin", "main"); err != nil {
+		return fmt.Errorf("git push failed: %w", err)
+	}
+
+	fmt.Printf("  [GIT] [%s] Repositorio actualizado con éxito.\n", dir)
+	return nil
 }
 
 func execCmd(dir string, name string, args ...string) error {
 	cmd := exec.Command(name, args...)
 	cmd.Dir = dir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
