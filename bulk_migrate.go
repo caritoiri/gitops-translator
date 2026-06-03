@@ -78,7 +78,41 @@ func main() {
 		// ==================================================================================
 		// EJECUCIÓN ACTIVA:
 		// ==================================================================================
-		{"trxz-conector", "integration", "release", false, "", "java", true, true, "", "", "", ""},
+		{"api-bs-auth-login-web-app", "rutinas-masivas", "develop", false, "", "java", true, true, "", "", "", ""},
+		{"api-bs-auth-login-web-app", "rutinas-masivas", "staging", false, "", "java", true, true, "", "", "", ""},
+		{"api-bs-auth-login-web-app", "rutinas-masivas", "release", false, "", "java", true, true, "", "", "", ""},
+
+		{"bff-qrapido", "rutinas-masivas", "develop", false, "", "java", true, true, "", "", "", ""},
+		{"bff-qrapido", "rutinas-masivas", "staging", false, "", "java", true, true, "", "", "", ""},
+		{"bff-qrapido", "rutinas-masivas", "release", false, "", "java", true, true, "", "", "", ""},
+
+		{"core-remittance-manager", "rutinas-masivas", "develop", false, "", "nodejs", true, true, "", "", "", ""},
+		{"core-remittance-manager", "rutinas-masivas", "staging", false, "", "nodejs", true, true, "", "", "", ""},
+		{"core-remittance-manager", "rutinas-masivas", "release", false, "", "nodejs", true, true, "", "", "", ""},
+
+		{"entel-adapter-conector", "rutinas-masivas", "develop", false, "", "java", true, true, "", "", "", ""},
+		{"entel-adapter-conector", "rutinas-masivas", "staging", false, "", "java", true, true, "", "", "", ""},
+		{"entel-adapter-conector", "rutinas-masivas", "release", false, "", "java", true, true, "", "", "", ""},
+
+		{"listas-negras-conector", "rutinas-masivas", "develop", false, "", "nodejs", true, true, "", "", "", ""},
+		{"listas-negras-conector", "rutinas-masivas", "staging", false, "", "nodejs", true, true, "", "", "", ""},
+		{"listas-negras-conector", "rutinas-masivas", "release", false, "", "nodejs", true, true, "", "", "", ""},
+
+		{"migration-vpay-cre-manager", "rutinas-masivas", "develop", false, "", "nodejs", true, true, "", "", "", ""},
+		{"migration-vpay-cre-manager", "rutinas-masivas", "staging", false, "", "nodejs", true, true, "", "", "", ""},
+		{"migration-vpay-cre-manager", "rutinas-masivas", "release", false, "", "nodejs", true, true, "", "", "", ""},
+
+		{"process-notification-connector", "rutinas-masivas", "develop", false, "", "java", true, true, "", "", "", ""},
+		{"process-notification-connector", "rutinas-masivas", "staging", false, "", "java", true, true, "", "", "", ""},
+		{"process-notification-connector", "rutinas-masivas", "release", false, "", "java", true, true, "", "", "", ""},
+
+		{"process-retries-worker", "rutinas-masivas", "develop", false, "", "java", true, true, "", "", "", ""},
+		{"process-retries-worker", "rutinas-masivas", "staging", false, "", "java", true, true, "", "", "", ""},
+		{"process-retries-worker", "rutinas-masivas", "release", false, "", "java", true, true, "", "", "", ""},
+
+		{"process-transaction-worker", "rutinas-masivas", "develop", false, "", "java", true, true, "", "", "", ""},
+		{"process-transaction-worker", "rutinas-masivas", "staging", false, "", "java", true, true, "", "", "", ""},
+		{"process-transaction-worker", "rutinas-masivas", "release", false, "", "java", true, true, "", "", "", ""},
 	}
 
 	cluster := "on-premise"
@@ -355,11 +389,6 @@ func hasChangesToCommit(dir string) bool {
 }
 
 func runGitCommand(dir string, message string) error {
-	fmt.Printf("  [GIT] [%s] Sincronizando repositorio: git pull origin main...\n", dir)
-	if err := execCmd(dir, "git", "pull", "origin", "main"); err != nil {
-		return fmt.Errorf("git pull failed: %w", err)
-	}
-
 	fmt.Printf("  [GIT] [%s] Agregando cambios: git add . ...\n", dir)
 	if err := execCmd(dir, "git", "add", "."); err != nil {
 		return fmt.Errorf("git add failed: %w", err)
@@ -373,6 +402,11 @@ func runGitCommand(dir string, message string) error {
 	fmt.Printf("  [GIT] [%s] Confirmando cambios: git commit -m \"%s\" ...\n", dir, message)
 	if err := execCmd(dir, "git", "commit", "-m", message); err != nil {
 		return fmt.Errorf("git commit failed: %w", err)
+	}
+
+	fmt.Printf("  [GIT] [%s] Sincronizando repositorio: git pull --rebase origin main...\n", dir)
+	if err := execCmd(dir, "git", "pull", "--rebase", "origin", "main"); err != nil {
+		return fmt.Errorf("git pull failed: %w", err)
 	}
 
 	fmt.Printf("  [GIT] [%s] Enviando al servidor: git push origin main ...\n", dir)

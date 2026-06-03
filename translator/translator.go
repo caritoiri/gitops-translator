@@ -310,7 +310,7 @@ func TranslateValuesWithOptions(oldYamlStr string, opts TranslationOptions) (str
 		if strings.Contains(k, "ORACLE_") {
 			hasOracle = true
 		}
-		if !defaultExcludeKeys[k] {
+		if !opts.UseCommonConfigmap || !defaultExcludeKeys[k] {
 			envVars[k] = v
 		}
 	}
