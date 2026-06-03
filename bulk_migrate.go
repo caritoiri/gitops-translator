@@ -1,152 +1,346 @@
 package main
 
 import (
-	"flag"
 	"fmt"
-	"io/ioutil"
+	"gitops-values-translator-go/translator" // Tu importación local corregida
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
-	"gitops-values-translator-go/translator"
+	"gopkg.in/yaml.v3"
 )
 
+type ResourceProfile struct {
+	CpuRequest    string
+	MemoryRequest string
+	CpuLimit      string
+	MemoryLimit   string
+}
+
+// Perfiles de recursos por tecnología para evitar configurar valores manuales repetitivos.
+var ResourceProfiles = map[string]ResourceProfile{
+	"java":    {"250m", "512Mi", "500m", "1Gi"},
+	"nodejs":  {"100m", "256Mi", "300m", "512Mi"},
+	"go":      {"50m", "64Mi", "200m", "256Mi"},
+	"python":  {"100m", "128Mi", "400m", "512Mi"},
+	"minimal": {"50m", "64Mi", "100m", "128Mi"},
+}
+
+type MigrationTarget struct {
+	Name               string // Dejar en blanco, "*" o "all" para migrar todo el namespace
+	Namespace          string
+	Env                string
+	UseCommonConfigmap bool
+	JavaOptions        string // Opción para sobreescribir JAVA_TOOL_OPTIONS (vacío si no se requiere)
+	Profile            string // "java", "nodejs", "go", "python", "minimal". Por defecto "java"
+	ForceResources     bool   // Si es true, sobreescribe los recursos legacy con los definidos en el perfil o manuales
+	Overwrite          bool   // Si es true, sobreescribe los archivos Helm Values y Argo App si ya existen
+
+	// Sobreescrituras manuales específicas (tienen prioridad sobre el perfil si no están vacías)
+	CpuRequest    string
+	MemoryRequest string
+	CpuLimit      string
+	MemoryLimit   string
+}
+
 func main() {
-	// Command-line flags
-	envFilter := flag.String("env", "", "Filter by environment name (e.g., develop, staging, release, production)")
-	teamFilter := flag.String("team", "", "Filter by team/namespace directory name (e.g., bg-crm, middleware)")
-	flag.Parse()
+	// Lista de servicios a migrar
+	targets := []MigrationTarget{
 
-	workspaceDir := "/home/laborant/workspace"
-	srcDir := filepath.Join(workspaceDir, "gitops/infra")
+		// CASO DE USO 1: Migrar app individual SIN sobreescribir (Safe/Skip mode)
+		// -> Si el archivo destino existe, se omite y no se realizan commits.
+		// {"trxz-conector", "integration", "develop", false, "", "nodejs", false, false, "", "", "", ""},
 
-	fmt.Printf("🔮 Starting selective bulk migration...\n")
-	if *envFilter != "" {
-		fmt.Printf("🎯 Filter [Environment]: %s\n", *envFilter)
+		// CASO DE USO 2: Migrar app individual CON sobreescritura (Para corregir migraciones incorrectas)
+		// -> Escribe los archivos siempre y los sube a Git.
+		// {"trxz-conector", "integration", "develop", false, "", "nodejs", false, true, "", "", "", ""},
+
+		// CASO DE USO 3: Migrar TODO un namespace usando el comodín "*" (ó "all" ó dejando vacío "")
+		// -> Auto-detecta todos los archivos legacy del namespace en el ambiente indicado.
+		// {"*", "integration", "develop", false, "", "nodejs", false, false, "", "", "", ""},
+
+		// CASO DE USO 4: Migrar TODO un namespace con sobreescritura y perfiles de recursos
+		// -> Sobreescribe todos los apps encontrados en el namespace con el perfil nodejs.
+		// {"*", "integration", "develop", false, "", "nodejs", true, true, "", "", "", ""},
+
+		// CASO DE USO 5: Migrar app Java forzando los recursos correctos de Java (250m-500m / 512Mi-1Gi)
+		// -> Reemplaza los recursos legacy (si eran muy bajos) con los del perfil Java.
+		// {"trxz-conector", "integration", "staging", false, "", "java", true, true, "", "", "", ""},
+
+		// CASO DE USO 6: Migrar con recursos configurados de forma manual (Prioridad sobre perfil)
+		// -> Especifica valores manuales de CPU y Memoria Request/Limit.
+		// {"trxz-conector", "integration", "develop", false, "", "nodejs", true, true, "150m", "256Mi", "300m", "512Mi"},
+
+		{"trxz-conector", "integration", "release", false, "", "java", true, true, "", "", "", ""},
 	}
-	if *teamFilter != "" {
-		fmt.Printf("🎯 Filter [Team/Namespace]: %s\n", *teamFilter)
+
+	cluster := "on-premise"
+
+	// Lista final expandida de servicios a migrar
+	var servicesToMigrate []MigrationTarget
+
+	for _, t := range targets {
+		if t.Name != "" && t.Name != "*" && strings.ToLower(t.Name) != "all" {
+			servicesToMigrate = append(servicesToMigrate, t)
+			continue
+		}
+
+		// Si el nombre está vacío, "*" o "all", buscamos todos los YAMLs en el namespace para migrar todo el directorio
+		dirPath := fmt.Sprintf("../gitops/argocd/%s/%s/%s", cluster, t.Env, t.Namespace)
+		files, err := os.ReadDir(dirPath)
+		if err != nil {
+			fmt.Printf("  [ERROR] No se pudo leer el directorio de Argo Apps %s para migración masiva: %v\n", dirPath, err)
+			continue
+		}
+
+		fmt.Printf("  [INFO] Auto-detectando apps en namespace [%s] bajo ambiente [%s]...\n", t.Namespace, t.Env)
+		for _, f := range files {
+			if !f.IsDir() && strings.HasSuffix(f.Name(), ".yaml") {
+				appName := strings.TrimSuffix(f.Name(), ".yaml")
+				servicesToMigrate = append(servicesToMigrate, MigrationTarget{
+					Name:               appName,
+					Namespace:          t.Namespace,
+					Env:                t.Env,
+					UseCommonConfigmap: t.UseCommonConfigmap,
+					JavaOptions:        t.JavaOptions,
+					Profile:            t.Profile,
+					ForceResources:     t.ForceResources,
+					Overwrite:          t.Overwrite,
+					CpuRequest:         t.CpuRequest,
+					MemoryRequest:      t.MemoryRequest,
+					CpuLimit:           t.CpuLimit,
+					MemoryLimit:        t.MemoryLimit,
+				})
+				fmt.Printf("    -> Detectada app para migración: %s\n", appName)
+			}
+		}
 	}
-	fmt.Println()
 
-	migratedCount := 0
-	skippedCount := 0
+	for _, svc := range servicesToMigrate {
+		fmt.Printf("\n>>> Procesando migración de [%s] para ambiente [%s]...\n", svc.Name, svc.Env)
 
-	err := filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
+		// 1. Apuntar al repositorio GitOps hermano subiendo un nivel con "../"
+		legacyPath := fmt.Sprintf("../gitops/argocd/%s/%s/%s/%s.yaml", cluster, svc.Env, svc.Namespace, svc.Name)
+		legacyData, err := os.ReadFile(legacyPath)
 		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			return nil
+			fmt.Printf("  [AVISO] No se encontró el archivo legacy en %s. Saltando...\n", legacyPath)
+			continue
 		}
 
-		// Look for values-*.yaml files in gitops/infra/
-		filename := info.Name()
-		if !strings.HasPrefix(filename, "values-") || (!strings.HasSuffix(filename, ".yaml") && !strings.HasSuffix(filename, ".yml")) {
-			return nil
+		// Intentar parsear la Argo CD App legacy para encontrar la ruta real del archivo de Helm Values
+		var legacyApp translator.LegacyApplication
+		strippedYaml := stripComments(string(legacyData))
+		var valuesPath string
+
+		if err := yaml.Unmarshal([]byte(strippedYaml), &legacyApp); err == nil {
+			path := legacyApp.Spec.Source.Path
+			var valuesFile string
+			if len(legacyApp.Spec.Source.Helm.ValueFiles) > 0 {
+				valuesFile = legacyApp.Spec.Source.Helm.ValueFiles[0]
+			} else {
+				valuesFile = fmt.Sprintf("values-%s.yaml", svc.Env)
+			}
+			if path != "" && valuesFile != "" {
+				valuesPath = filepath.Join("..", "gitops", path, valuesFile)
+			}
 		}
 
-		// Extract environment name from filename (e.g. values-develop.yaml -> develop)
-		envName := strings.TrimSuffix(strings.TrimPrefix(filename, "values-"), ".yaml")
-		envName = strings.TrimSuffix(envName, ".yml")
-
-		// Standardize envName to match destination structures
-		envLower := strings.ToLower(envName)
-		var stdEnv string
-		if strings.Contains(envLower, "dev") {
-			stdEnv = "develop"
-		} else if strings.Contains(envLower, "stg") || strings.Contains(envLower, "staging") {
-			stdEnv = "staging"
-		} else if strings.Contains(envLower, "release") || strings.Contains(envLower, "prep") {
-			stdEnv = "release"
-		} else if strings.Contains(envLower, "prod") || strings.Contains(envLower, "master") {
-			stdEnv = "production"
-		} else {
-			stdEnv = envLower
+		// Fallback si no se pudo determinar por el parseo de la Argo App
+		if valuesPath == "" {
+			valuesPath = fmt.Sprintf("../gitops/infra/%s/%s/values-%s.yaml", svc.Namespace, svc.Name, svc.Env)
 		}
 
-		// Filter by environment if specified
-		if *envFilter != "" && !strings.EqualFold(stdEnv, *envFilter) && !strings.EqualFold(envLower, *envFilter) {
-			skippedCount++
-			return nil
-		}
-
-		// Determine team and app from path
-		// e.g. gitops/infra/bg-crm/api-rest-integracion-crm/values-develop.yaml
-		rel, err := filepath.Rel(srcDir, path)
+		fmt.Printf("  [INFO] Leyendo valores legacy de: %s\n", valuesPath)
+		valuesData, err := os.ReadFile(valuesPath)
 		if err != nil {
-			return err
-		}
-		parts := strings.Split(rel, string(filepath.Separator))
-		if len(parts) < 3 {
-			// Skip files not in deep nested directories (like base folders)
-			return nil
-		}
-		team := parts[0]
-
-		// Filter by team if specified
-		if *teamFilter != "" && !strings.EqualFold(team, *teamFilter) {
-			skippedCount++
-			return nil
+			fmt.Printf("  [ERROR] No se pudo leer el archivo de valores legacy en %s: %v. Saltando...\n", valuesPath, err)
+			continue
 		}
 
-		// Read legacy yaml
-		data, err := ioutil.ReadFile(path)
-		if err != nil {
-			return fmt.Errorf("failed to read %s: %w", path, err)
+		// Determinar perfil y valores de recursos
+		profileName := strings.ToLower(strings.TrimSpace(svc.Profile))
+		if profileName == "" {
+			profileName = "java"
+		}
+		profile, exists := ResourceProfiles[profileName]
+		if !exists {
+			profile = ResourceProfiles["java"]
 		}
 
-		// Set default cluster based on team/env rules matching the pipeline
-		cluster := "on-premise"
-		if team == "ganamovil" {
-			cluster = "on-prem-ngm"
-		} else if stdEnv != "production" && team == "middleware" {
-			cluster = "on-prem-middl"
+		cpuReq := svc.CpuRequest
+		if cpuReq == "" {
+			cpuReq = profile.CpuRequest
+		}
+		memReq := svc.MemoryRequest
+		if memReq == "" {
+			memReq = profile.MemoryRequest
+		}
+		cpuLim := svc.CpuLimit
+		if cpuLim == "" {
+			cpuLim = profile.CpuLimit
+		}
+		memLim := svc.MemoryLimit
+		if memLim == "" {
+			memLim = profile.MemoryLimit
 		}
 
-		// Translate values and get Argo CD app manifest
-		translatedValues, targetValuesPath, argoApp, targetArgoPath, _, err := translator.TranslateValuesWithArgo(
-			string(data),
-			cluster,
-			stdEnv,
-			team,
-			"",
-			false,
+		opts := translator.TranslationOptions{
+			Cluster:             cluster,
+			EnvOverride:         svc.Env,
+			TeamOverride:        svc.Namespace,
+			JavaOptionsOverride: svc.JavaOptions,
+			UseCommonConfigmap:  svc.UseCommonConfigmap,
+			CpuRequest:          cpuReq,
+			MemoryRequest:       memReq,
+			CpuLimit:            cpuLim,
+			MemoryLimit:         memLim,
+			ForceResourceLimits: svc.ForceResources,
+		}
+
+		// 2. Ejecutar el traductor pasándole los valores Helm legados y opciones
+		translatedValues, targetValuesPath, argoApp, argoPath, _, err := translator.TranslateValuesWithArgoWithOptions(
+			string(valuesData),
+			opts,
 		)
 		if err != nil {
-			fmt.Printf("⚠️ Skip %s due to error: %v\n", path, err)
-			return nil
+			fmt.Printf("  [ERROR] Al traducir el servicio %s: %v\n", svc.Name, err)
+			continue
 		}
 
-		// 1. Write the modern values file to charts repo
-		fullValuesDestPath := filepath.Join(workspaceDir, targetValuesPath)
-		valuesDir := filepath.Dir(fullValuesDestPath)
-		if err := os.MkdirAll(valuesDir, 0755); err != nil {
-			return fmt.Errorf("failed to create values dir %s: %w", valuesDir, err)
-		}
-		if err := ioutil.WriteFile(fullValuesDestPath, []byte(translatedValues), 0644); err != nil {
-			return fmt.Errorf("failed to write values file %s: %w", fullValuesDestPath, err)
-		}
-
-		// 2. Write the modern ArgoCD Application manifest to argocd repo
-		fullArgoDestPath := filepath.Join(workspaceDir, "argocd", targetArgoPath)
-		argoDir := filepath.Dir(fullArgoDestPath)
-		if err := os.MkdirAll(argoDir, 0755); err != nil {
-			return fmt.Errorf("failed to create argo dir %s: %w", argoDir, err)
-		}
-		if err := ioutil.WriteFile(fullArgoDestPath, []byte(argoApp), 0644); err != nil {
-			return fmt.Errorf("failed to write argo file %s: %w", fullArgoDestPath, err)
+		// --- CORRECCIÓN DE "unknown-app" EN CALIENTE ---
+		// Si el traductor no encontró nameOverride y generó "unknown-app", lo sobreescribimos con el nombre correcto.
+		if strings.Contains(targetValuesPath, "unknown-app") {
+			fmt.Printf("  [AVISO] Detectado fallback 'unknown-app'. Corrigiendo rutas con el nombre real: '%s'\n", svc.Name)
+			targetValuesPath = strings.ReplaceAll(targetValuesPath, "unknown-app", svc.Name)
+			argoPath = strings.ReplaceAll(argoPath, "unknown-app", svc.Name)
+			// Reemplazar la propiedad nameOverride dentro del contenido del YAML de Argo App y Helm Values
+			translatedValues = strings.ReplaceAll(translatedValues, "nameOverride: unknown-app", "nameOverride: "+svc.Name)
+			argoApp = strings.ReplaceAll(argoApp, "name: "+svc.Namespace+"-unknown-app", "name: "+svc.Namespace+"-"+svc.Name)
+			argoApp = strings.ReplaceAll(argoApp, "unknown-app.yaml", svc.Name+".yaml")
 		}
 
-		fmt.Printf("✅ Migrated: %s\n   -> Values: %s\n   -> ArgoCD: %s\n", path, fullValuesDestPath, fullArgoDestPath)
-		migratedCount++
-		return nil
-	})
+		// --- RESOLUCIÓN DE RUTAS PARA REPOSITORIOS VECINOS ---
+		localTargetValuesPath := filepath.Join("..", targetValuesPath) // Ejemplo: ../charts/webapp/...
+		localArgoPath := filepath.Join("../argocd", argoPath)          // Ejemplo: ../argocd/cluster/...
 
+		hasChanges := false // Bandera para saber si realmente debemos hacer commit en Git
+
+		// --- CONTROL INDEPENDIENTE PASO A PASO ---
+
+		// Paso A: Escribir Helm Values en 'charts'
+		if _, err := os.Stat(localTargetValuesPath); os.IsNotExist(err) || svc.Overwrite {
+			err = os.MkdirAll(filepath.Dir(localTargetValuesPath), 0755)
+			if err != nil {
+				fmt.Printf("  [ERROR] Al crear directorios de destino %s: %v\n", localTargetValuesPath, err)
+				continue
+			}
+			_ = os.WriteFile(localTargetValuesPath, []byte(translatedValues), 0644)
+			fmt.Printf("  [OK] Creado/Sobreestrito Helm Values: %s\n", localTargetValuesPath)
+			hasChanges = true
+		} else {
+			fmt.Printf("  [OMITIDO] El archivo de Helm Values ya existe: %s (No se sobreescribirá)\n", localTargetValuesPath)
+		}
+
+		// Paso B: Escribir Argo App en 'argocd'
+		if _, err := os.Stat(localArgoPath); os.IsNotExist(err) || svc.Overwrite {
+			err = os.MkdirAll(filepath.Dir(localArgoPath), 0755)
+			if err != nil {
+				fmt.Printf("  [ERROR] Al crear directorios de Argo App %s: %v\n", localArgoPath, err)
+				continue
+			}
+			_ = os.WriteFile(localArgoPath, []byte(argoApp), 0644)
+			fmt.Printf("  [OK] Creada/Sobreestrita Argo App: %s\n", localArgoPath)
+			hasChanges = true
+		} else {
+			fmt.Printf("  [OMITIDO] La Argo App ya existe: %s (No se sobreescribirá)\n", localArgoPath)
+		}
+
+		// Paso C: Comentar el archivo legacy original en 'gitops' si aún no está comentado
+		wasCommented, err := commentLegacyFile(legacyPath)
+		if err != nil {
+			fmt.Printf("  [ERROR] Al procesar el archivo legacy %s: %v\n", legacyPath, err)
+		} else if wasCommented {
+			fmt.Printf("  [OK] Comentado archivo legacy original: %s\n", legacyPath)
+			hasChanges = true
+		} else {
+			fmt.Println("  [OMITIDO] El archivo legacy ya se encontraba comentado previamente.")
+		}
+
+		// Paso D: Ejecutar Git workflow únicamente si hubo cambios físicos reales
+		if hasChanges {
+			commitMessage := fmt.Sprintf("feat: migrated %s %s", svc.Name, svc.Env)
+			fmt.Println("  [GIT] Enviando cambios detectados a los repositorios...")
+			runGitCommand("../gitops", commitMessage)
+			runGitCommand("../argocd", commitMessage)
+			runGitCommand("../charts", commitMessage)
+		} else {
+			fmt.Println("  [GIT] Sin cambios pendientes. No se requiere ejecución de commits.")
+		}
+	}
+}
+
+// Retorna true si modificó el archivo, false si ya estaba comentado
+func commentLegacyFile(path string) (bool, error) {
+	data, err := os.ReadFile(path)
 	if err != nil {
-		fmt.Printf("❌ Migration failed: %v\n", err)
-		os.Exit(1)
+		return false, err
 	}
 
-	fmt.Printf("\n🎉 Migration finished! Migrated: %d files, Skipped/Filtered: %d files.\n", migratedCount, skippedCount)
+	content := string(data)
+	// Si todas las líneas con contenido útil ya empiezan con '#', no hacemos nada
+	lines := strings.Split(content, "\n")
+	alreadyCommented := true
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if len(trimmed) > 0 && !strings.HasPrefix(trimmed, "#") && trimmed != "---" {
+			alreadyCommented = false
+			break
+		}
+	}
+
+	if alreadyCommented {
+		return false, nil
+	}
+
+	// Comentar el archivo
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if len(trimmed) > 0 && !strings.HasPrefix(trimmed, "#") && trimmed != "---" {
+			lines[i] = "# " + line
+		}
+	}
+	err = os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0644)
+	return true, err
+}
+
+func stripComments(yamlStr string) string {
+	lines := strings.Split(yamlStr, "\n")
+	var result []string
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "#") {
+			stripped := strings.TrimPrefix(trimmed, "#")
+			if strings.HasPrefix(stripped, " ") {
+				stripped = strings.TrimPrefix(stripped, " ")
+			}
+			result = append(result, stripped)
+		} else {
+			result = append(result, line)
+		}
+	}
+	return strings.Join(result, "\n")
+}
+
+func runGitCommand(dir string, message string) {
+	_ = execCmd(dir, "git", "pull")
+	_ = execCmd(dir, "git", "add", ".")
+	_ = execCmd(dir, "git", "commit", "-m", message)
+	_ = execCmd(dir, "git", "push")
+}
+
+func execCmd(dir string, name string, args ...string) error {
+	cmd := exec.Command(name, args...)
+	cmd.Dir = dir
+	return cmd.Run()
 }

@@ -409,8 +409,8 @@ kong:
 	if !ok {
 		t.Fatalf("kong missing")
 	}
-	if _, exists := kongVal["enabled"]; exists {
-		t.Errorf("enabled key should be omitted under kong")
+	if enabled, ok := kongVal["enabled"].(bool); !ok || !enabled {
+		t.Errorf("expected enabled to be true under kong, got %v", kongVal["enabled"])
 	}
 	plugins, ok := kongVal["plugins"].([]any)
 	if !ok || len(plugins) != 2 {

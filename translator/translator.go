@@ -207,7 +207,43 @@ var defaultExcludeKeys = map[string]bool{
 	"ENV_VAR":                 true,
 }
 
+type TranslationOptions struct {
+	Cluster             string
+	EnvOverride         string
+	TeamOverride        string
+	JavaOptionsOverride string
+	UseCommonConfigmap  bool
+	CpuRequest          string
+	MemoryRequest       string
+	CpuLimit            string
+	MemoryLimit         string
+	ForceResourceLimits bool
+}
+
 func TranslateValues(oldYamlStr string, cluster string, envOverride string, teamOverride string, javaOptionsOverride string, useCommonConfigmap bool) (string, string, error) {
+	return TranslateValuesWithOptions(oldYamlStr, TranslationOptions{
+		Cluster:             cluster,
+		EnvOverride:         envOverride,
+		TeamOverride:        teamOverride,
+		JavaOptionsOverride: javaOptionsOverride,
+		UseCommonConfigmap:  useCommonConfigmap,
+	})
+}
+
+func TranslateValuesWithOptions(oldYamlStr string, opts TranslationOptions) (string, string, error) {
+	if opts.CpuRequest == "" {
+		opts.CpuRequest = "250m"
+	}
+	if opts.MemoryRequest == "" {
+		opts.MemoryRequest = "512Mi"
+	}
+	if opts.CpuLimit == "" {
+		opts.CpuLimit = "500m"
+	}
+	if opts.MemoryLimit == "" {
+		opts.MemoryLimit = "1Gi"
+	}
+
 	var oldData map[string]any
 	if err := yaml.Unmarshal([]byte(oldYamlStr), &oldData); err != nil {
 		return "", "", fmt.Errorf("error parsing old YAML: %w", err)
@@ -226,15 +262,15 @@ func TranslateValues(oldYamlStr string, cluster string, envOverride string, team
 	nameOverride = strings.ToLower(strings.TrimSpace(nameOverride))
 
 	environment := "develop"
-	if envOverride != "" {
-		environment = envOverride
+	if opts.EnvOverride != "" {
+		environment = opts.EnvOverride
 	} else if v, ok := oldData["environment"].(string); ok && v != "" {
 		environment = v
 	}
 
 	team := "middleware"
-	if teamOverride != "" {
-		team = teamOverride
+	if opts.TeamOverride != "" {
+		team = opts.TeamOverride
 	} else if v, ok := oldData["team"].(string); ok && v != "" {
 		team = v
 	}
@@ -279,8 +315,8 @@ func TranslateValues(oldYamlStr string, cluster string, envOverride string, team
 		}
 	}
 
-	if _, exists := envVars["JAVA_TOOL_OPTIONS"]; !exists && javaOptionsOverride != "" {
-		envVars["JAVA_TOOL_OPTIONS"] = javaOptionsOverride
+	if _, exists := envVars["JAVA_TOOL_OPTIONS"]; !exists && opts.JavaOptionsOverride != "" {
+		envVars["JAVA_TOOL_OPTIONS"] = opts.JavaOptionsOverride
 	}
 
 	// 4. Handle Sealed Secrets
@@ -302,11 +338,11 @@ func TranslateValues(oldYamlStr string, cluster string, envOverride string, team
 
 	// 5. extEnvVarsFrom (nil if disabled to inherit from base values.yaml)
 	var extEnvVarsFrom *ExtEnvVarsFrom
-	if useCommonConfigmap || len(sealedSecrets) > 0 {
+	if opts.UseCommonConfigmap || len(sealedSecrets) > 0 {
 		extEnvVarsFrom = &ExtEnvVarsFrom{
 			Enabled: true,
 		}
-		if useCommonConfigmap {
+		if opts.UseCommonConfigmap {
 			extEnvVarsFrom.EnvFrom = []EnvFromEntry{
 				{
 					ConfigMapRef: ConfigMapRef{
@@ -453,18 +489,25 @@ func TranslateValues(oldYamlStr string, cluster string, envOverride string, team
 		memLim = ml
 	}
 
-	// Default fallbacks if legacy resources are missing
-	if cpuReq == "" {
-		cpuReq = "250m"
-	}
-	if memReq == "" {
-		memReq = "512Mi"
-	}
-	if cpuLim == "" {
-		cpuLim = "500m"
-	}
-	if memLim == "" {
-		memLim = "1Gi"
+	// Default fallbacks or strict overrides if specified
+	if opts.ForceResourceLimits {
+		cpuReq = opts.CpuRequest
+		memReq = opts.MemoryRequest
+		cpuLim = opts.CpuLimit
+		memLim = opts.MemoryLimit
+	} else {
+		if cpuReq == "" {
+			cpuReq = opts.CpuRequest
+		}
+		if memReq == "" {
+			memReq = opts.MemoryRequest
+		}
+		if cpuLim == "" {
+			cpuLim = opts.CpuLimit
+		}
+		if memLim == "" {
+			memLim = opts.MemoryLimit
+		}
 	}
 
 	var volumeMounts []VolumeMount
@@ -762,9 +805,11 @@ func TranslateValues(oldYamlStr string, cluster string, envOverride string, team
 				}
 			}
 		}
+		enabledVal := true
 		if e, ok := kongMap["enabled"].(bool); ok {
-			k.Enabled = &e
+			enabledVal = e
 		}
+		k.Enabled = &enabledVal
 		kong = &k
 	}
 
@@ -775,7 +820,7 @@ func TranslateValues(oldYamlStr string, cluster string, envOverride string, team
 
 	webappValues := WebappValues{
 		NameOverride:   nameOverride,
-		Cluster:        cluster,
+		Cluster:        opts.Cluster,
 		Environment:    environment,
 		Team:           team,
 		Project:        project,
@@ -796,7 +841,7 @@ func TranslateValues(oldYamlStr string, cluster string, envOverride string, team
 	yamlHeader := "########################################\n## CONFIG | Web server values\n########################################\n"
 	finalYaml := yamlHeader + unwrapYaml(buf.String())
 
-	targetPath := fmt.Sprintf("charts/webapp/values/%s/%s/%s/%s.yaml", cluster, environment, team, nameOverride)
+	targetPath := fmt.Sprintf("charts/webapp/values/%s/%s/%s/%s.yaml", opts.Cluster, environment, team, nameOverride)
 
 	return finalYaml, targetPath, nil
 }
@@ -898,7 +943,17 @@ type LegacyApplication struct {
 }
 
 func TranslateValuesWithArgo(oldYamlStr string, cluster string, envOverride string, teamOverride string, javaOptionsOverride string, useCommonConfigmap bool) (string, string, string, string, string, error) {
-	translatedValues, targetValuesPath, err := TranslateValues(oldYamlStr, cluster, envOverride, teamOverride, javaOptionsOverride, useCommonConfigmap)
+	return TranslateValuesWithArgoWithOptions(oldYamlStr, TranslationOptions{
+		Cluster:             cluster,
+		EnvOverride:         envOverride,
+		TeamOverride:        teamOverride,
+		JavaOptionsOverride: javaOptionsOverride,
+		UseCommonConfigmap:  useCommonConfigmap,
+	})
+}
+
+func TranslateValuesWithArgoWithOptions(oldYamlStr string, opts TranslationOptions) (string, string, string, string, string, error) {
+	translatedValues, targetValuesPath, err := TranslateValuesWithOptions(oldYamlStr, opts)
 	if err != nil {
 		return "", "", "", "", "", err
 	}
@@ -917,25 +972,25 @@ func TranslateValuesWithArgo(oldYamlStr string, cluster string, envOverride stri
 	nameOverride = strings.ToLower(strings.TrimSpace(nameOverride))
 
 	environment := "develop"
-	if envOverride != "" {
-		environment = envOverride
+	if opts.EnvOverride != "" {
+		environment = opts.EnvOverride
 	} else if v, ok := oldData["environment"].(string); ok && v != "" {
 		environment = v
 	}
 
 	team := "middleware"
-	if teamOverride != "" {
-		team = teamOverride
+	if opts.TeamOverride != "" {
+		team = opts.TeamOverride
 	} else if v, ok := oldData["team"].(string); ok && v != "" {
 		team = v
 	}
 
-	argoApp, argoPath, err := TranslateArgoAppFromParams(nameOverride, team, environment, cluster, true)
+	argoApp, argoPath, err := TranslateArgoAppFromParams(nameOverride, team, environment, opts.Cluster, true)
 	if err != nil {
 		return "", "", "", "", "", err
 	}
 
-	legacyArgoPath := fmt.Sprintf("argocd/%s/%s/%s/%s.yaml", cluster, environment, team, nameOverride)
+	legacyArgoPath := fmt.Sprintf("argocd/%s/%s/%s/%s.yaml", opts.Cluster, environment, team, nameOverride)
 
 	return translatedValues, targetValuesPath, argoApp, argoPath, legacyArgoPath, nil
 }
